@@ -23,6 +23,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     int gameTime = 0;
     Map<UUID, Integer> scores = new HashMap<>();
     Random random = new Random();
+    List<Entity> removeEntities = new ArrayList<>();
 
     @Override
     public void onEnable() {
@@ -32,6 +33,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        stopGame();
     }
 
     @Override
@@ -46,6 +48,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         case "start":
             startGame((Player) sender);
             sender.sendMessage("started");
+            return true;
+        case "stop":
+            stopGame();
+            sender.sendMessage("stopped");
             return true;
         default:
             return false;
@@ -63,7 +69,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                                  ChatColor.RED + "Nobody survives");
                 target.sendMessage(ChatColor.RED + "Draw! Nobody survives.");
             }
-            playing = false;
+            stopGame();
             return;
         }
         if (alive.size() == 1) {
@@ -74,13 +80,33 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 target.sendMessage(ChatColor.GREEN + winner.getName() + " wins this round!");
                 target.playSound(target.getLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, SoundCategory.MASTER, 0.2f, 2.0f);
             }
-            playing = false;
+            stopGame();
             return;
+        }
+        if (gameTime == 200) {
+            for (Player target : getServer().getOnlinePlayers()) {
+                target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.2f);
+                target.sendTitle("", ChatColor.DARK_RED + "Fight!", 0, 20, 0);
+                target.sendMessage(ChatColor.DARK_RED + "Fight!");
+            }
         }
         if (gameTime < 200 && gameTime % 20 == 0) {
             int seconds = (200 - gameTime) / 20;
             for (Player target : getServer().getOnlinePlayers()) {
                 target.sendActionBar(ChatColor.RED + "PvP begins in " + seconds);
+            }
+        }
+        if (gameTime == 20 * 90) {
+            for (Player target : getServer().getOnlinePlayers()) {
+                target.sendMessage(ChatColor.DARK_RED + "Sudden Death!");
+                target.sendTitle("", ChatColor.DARK_RED + "Sudden Death!", 0, 20, 0);
+            }
+        }
+        if (gameTime > 20 * 90 && gameTime % 40 == 0) {
+            for (Player target : getServer().getOnlinePlayers()) {
+                if (target.getGameMode() != GameMode.SPECTATOR) {
+                    target.damage(1.0);
+                }
             }
         }
     }
@@ -100,18 +126,28 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         scores.clear();
         World world = player.getWorld();
         for (Player target : getServer().getOnlinePlayers()) {
+            if (target.getName().equals("Cavetale")) continue;
             target.setHealth(20.0);
             target.setFoodLevel(20);
             target.teleport(world.getSpawnLocation());
             target.setGameMode(GameMode.SURVIVAL);
-            getServer().dispatchCommand(getServer().getConsoleSender(), "ml add " + target.getName());
             target.getInventory().clear();
             giveWeapons(target);
+            for (PotionEffect effect : target.getActivePotionEffects()) {
+                target.removePotionEffect(effect.getType());
+            }
+            scores.put(target.getUniqueId(), 0);
         }
         playing = true;
         gameTime = 0;
-        getServer().dispatchCommand(getServer().getConsoleSender(), "minecraft:effect clear @a");
-    }        
+    }
+
+    void stopGame() {
+        if (!playing) return;
+        playing = false;
+        for (Entity e : removeEntities) e.remove();
+        removeEntities.clear();
+    }
 
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
@@ -124,7 +160,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 player.setGameMode(GameMode.SPECTATOR);
             });
         Player killer = player.getKiller();
-        if (killer != null) addScore(killer, 1);
+        if (killer != null) {
+            addScore(killer, 1);
+            for (ItemStack item : killer.getInventory()) {
+                if (item == null || item.getType() == Material.AIR) continue;
+                enchant(item);
+            }
+            getLogger().info(killer.getName() + " killed " + player.getName());
+        }
     }
 
     public List<Player> getAlive() {
@@ -137,13 +180,22 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerSidebar(PlayerSidebarEvent event) {
         List<String> ls = new ArrayList<>();
-        if (playing) ls.add(ChatColor.GREEN + "Alive " + ChatColor.WHITE + getAlive().size());
-        List<Player> scores = getServer().getOnlinePlayers().stream()
-            .filter(p -> p.getGameMode() == GameMode.SURVIVAL)
+        if (playing) {
+            int minutes = (gameTime / 20) / 60;
+            int seconds = (gameTime / 20) % 60;
+            ls.add(ChatColor.GREEN + "Time " + ChatColor.WHITE + String.format("%02d:%02d", minutes, seconds));
+            ls.add(ChatColor.GREEN + "Alive " + ChatColor.WHITE + getAlive().size());
+        }
+        List<Player> list = getServer().getOnlinePlayers().stream()
+            .filter(p -> scores.containsKey(p.getUniqueId()))
             .sorted((b, a) -> Integer.compare(getScore(a), getScore(b)))
             .collect(Collectors.toList());
-        for (Player player : scores) {
-            ls.add("" + ChatColor.YELLOW + getScore(player) + " " + player.getName());
+        for (Player player : list) {
+            if (player.getGameMode() == GameMode.SPECTATOR) {
+                ls.add("" + ChatColor.GREEN + getScore(player) + " " + ChatColor.DARK_GRAY + player.getName());
+            } else {
+                ls.add("" + ChatColor.GREEN + getScore(player) + " " + ChatColor.WHITE + player.getName());
+            }
         }
         if (ls.isEmpty()) return;
         event.addLines(this, Priority.DEFAULT, ls);
@@ -171,60 +223,85 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void giveWeapons(Player player) {
-        switch (random.nextInt(3)) {
-        case 0: player.getInventory().addItem(enchant(new ItemStack(Material.IRON_SWORD))); break;
-        case 1: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_SWORD))); break;
-        case 2: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_SWORD))); break;
+        // Weapon
+        switch (random.nextInt(8)) {
+        case 0:
+        case 1:
+            player.getInventory().addItem(enchant(new ItemStack(Material.BOW)));
+            switch (random.nextInt(4)) {
+            case 0: case 1: case 2:
+                player.getInventory().addItem(enchant(new ItemStack(Material.ARROW, 64))); break;
+            case 3:
+                player.getInventory().addItem(enchant(new ItemStack(Material.SPECTRAL_ARROW, 64))); break;
+            }
+            break;
+        case 2:
+            player.getInventory().addItem(enchant(new ItemStack(Material.CROSSBOW)));
+            switch (random.nextInt(4)) {
+            case 0: case 1: case 2:
+                player.getInventory().addItem(enchant(new ItemStack(Material.ARROW, 64))); break;
+            case 3:
+                player.getInventory().addItem(enchant(new ItemStack(Material.SPECTRAL_ARROW, 64))); break;
+            }
+            break;
+        case 3:
+            player.getInventory().addItem(enchant(new ItemStack(Material.TRIDENT))); break;
+        case 4: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_SWORD))); break;
+        case 5: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_SWORD))); break;
+        case 6: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_AXE))); break;
+        case 7: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_AXE))); break;
+        default: break;
         }
-        switch (random.nextInt(4)) {
-        case 0: case 1:
-            player.getInventory().addItem(enchant(new ItemStack(Material.BOW))); break;
-        case 2: player.getInventory().addItem(enchant(new ItemStack(Material.CROSSBOW))); break;
-        case 3: player.getInventory().addItem(enchant(new ItemStack(Material.TRIDENT))); break;
-        }
-        switch (random.nextInt(4)) {
-        case 0: case 1: case 2:
-            player.getInventory().addItem(enchant(new ItemStack(Material.ARROW, 64))); break;
-        case 3: player.getInventory().addItem(enchant(new ItemStack(Material.SPECTRAL_ARROW, 64))); break;
-        }
+        // Food
         switch (random.nextInt(3)) {
         case 0: player.getInventory().addItem(enchant(new ItemStack(Material.BREAD, 64))); break;
         case 1: player.getInventory().addItem(enchant(new ItemStack(Material.MELON_SLICE, 64))); break;
         case 2: player.getInventory().addItem(enchant(new ItemStack(Material.COOKED_BEEF, 64))); break;
         }
-        switch (random.nextInt(5)) {
+        // Armor
+        switch (random.nextInt(12)) {
         case 0: player.getInventory().addItem(enchant(new ItemStack(Material.IRON_CHESTPLATE))); break;
         case 1: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_CHESTPLATE))); break;
         case 2: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_CHESTPLATE))); break;
+        case 3: player.getInventory().addItem(enchant(new ItemStack(Material.IRON_LEGGINGS))); break;
+        case 4: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_LEGGINGS))); break;
+        case 5: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_LEGGINGS))); break;
+        case 6: player.getInventory().addItem(enchant(new ItemStack(Material.IRON_HELMET))); break;
+        case 7: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_HELMET))); break;
+        case 8: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_HELMET))); break;
+        case 9: player.getInventory().addItem(enchant(new ItemStack(Material.IRON_BOOTS))); break;
+        case 10: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_BOOTS))); break;
+        case 11: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_BOOTS))); break;
+        default: break;
         }
+        // Bonus
         switch (random.nextInt(5)) {
-        case 0: player.getInventory().addItem(enchant(new ItemStack(Material.IRON_LEGGINGS))); break;
-        case 1: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_LEGGINGS))); break;
-        case 2: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_LEGGINGS))); break;
-        }
-        switch (random.nextInt(5)) {
-        case 0: player.getInventory().addItem(enchant(new ItemStack(Material.IRON_HELMET))); break;
-        case 1: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_HELMET))); break;
-        case 2: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_HELMET))); break;
-        }
-        switch (random.nextInt(5)) {
-        case 0: player.getInventory().addItem(enchant(new ItemStack(Material.IRON_BOOTS))); break;
-        case 1: player.getInventory().addItem(enchant(new ItemStack(Material.DIAMOND_BOOTS))); break;
-        case 2: player.getInventory().addItem(enchant(new ItemStack(Material.NETHERITE_BOOTS))); break;
-        }
-        switch (random.nextInt(10)) {
         case 0: player.getInventory().addItem(new ItemStack(Material.GOLDEN_APPLE, 2)); break;
         case 1: player.getInventory().addItem(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE)); break;
         case 2: player.getInventory().addItem(enchant(new ItemStack(Material.SHIELD))); break;
+        case 3:
+            for (int i = 0; i < 1 + random.nextInt(3); i += 1) {
+                player.getInventory().addItem(potion());
+            }
+            break;
+        case 4: {
+            int amount = 1 + random.nextInt(3) + random.nextInt(3);
+            for (int i = 0; i < amount; i += 1) {
+                Wolf wolf = player.getWorld().spawn(player.getLocation(), Wolf.class, w -> {
+                        w.setTamed(true);
+                        w.setOwner(player);
+                        w.setPersistent(false);
+                        w.setRemoveWhenFarAway(true);
+                    });
+                removeEntities.add(wolf);
+            }
+            if (amount == 1) {
+                player.sendMessage(ChatColor.BLUE + "You got a dog!");
+            } else {
+                player.sendMessage(ChatColor.BLUE + "You got " + amount + " dogs!");
+            }
+            break;
         }
-        for (int i = 0; i < 1 + random.nextInt(3); i += 1) {
-            player.getInventory().addItem(potion());
-        }
-        if (random.nextInt(10) == 0) {
-            player.getWorld().spawn(player.getLocation(), Wolf.class, w -> {
-                    w.setTamed(true);
-                    w.setOwner(player);
-                });
         }
     }
 
