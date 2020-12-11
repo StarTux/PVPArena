@@ -19,11 +19,20 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.*;
 
 public final class PVPArenaPlugin extends JavaPlugin implements Listener {
-    boolean playing = false;
+    State state = State.IDLE;
     int gameTime = 0;
+    boolean suddenDeath = false;
+    int endTime = 0;
     Map<UUID, Integer> scores = new HashMap<>();
     Random random = new Random();
     List<Entity> removeEntities = new ArrayList<>();
+    World world;
+
+    enum State {
+        IDLE,
+        PLAY,
+        END;
+    }
 
     @Override
     public void onEnable() {
@@ -37,10 +46,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @Override
-    public boolean onCommand(final CommandSender sender,
-                             final Command command,
-                             final String alias,
-                             final String[] args) {
+    public boolean onCommand(final CommandSender sender, final Command command, final String alias, final String[] args) {
         if (args.length == 0) {
             return false;
         }
@@ -59,17 +65,27 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void tick() {
-        if (!playing) return;
+        if (Bukkit.getOnlinePlayers().isEmpty()) return;
+        if (state == State.IDLE) return;
+        if (state == State.END) {
+            endTime += 1;
+            if (endTime > 200) startGame();
+            return;
+        }
+        if (state == State.PLAY) tickPlay();
+    }
+
+    void tickPlay() {
         gameTime += 1;
         List<Player> alive = getAlive();
         if (alive.isEmpty()) {
             getLogger().info("The game is a draw!");
-            for (Player target : getServer().getOnlinePlayers()) {
+            for (Player target : Bukkit.getOnlinePlayers()) {
                 target.sendTitle(ChatColor.RED + "Draw",
                                  ChatColor.RED + "Nobody survives");
                 target.sendMessage(ChatColor.RED + "Draw! Nobody survives.");
             }
-            stopGame();
+            endGame();
             return;
         }
         if (alive.size() == 1) {
@@ -80,7 +96,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 target.sendMessage(ChatColor.GREEN + winner.getName() + " wins this round!");
                 target.playSound(target.getLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, SoundCategory.MASTER, 0.2f, 2.0f);
             }
-            stopGame();
+            endGame();
             return;
         }
         if (gameTime == 200) {
@@ -101,8 +117,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 target.sendMessage(ChatColor.DARK_RED + "Sudden Death!");
                 target.sendTitle("", ChatColor.DARK_RED + "Sudden Death!", 0, 20, 0);
             }
+            suddenDeath = true;
         }
-        if (gameTime > 20 * 90 && gameTime % 40 == 0) {
+        if (suddenDeath && gameTime % 40 == 0) {
             for (Player target : getServer().getOnlinePlayers()) {
                 if (target.getGameMode() != GameMode.SPECTATOR) {
                     target.damage(1.0);
@@ -123,28 +140,41 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void startGame(Player player) {
+        world = player.getWorld();
+        startGame();
+    }
+
+    void startGame() {
         scores.clear();
-        World world = player.getWorld();
         for (Player target : getServer().getOnlinePlayers()) {
             if (target.getName().equals("Cavetale")) continue;
+            target.getInventory().clear();
             target.setHealth(20.0);
             target.setFoodLevel(20);
             target.teleport(world.getSpawnLocation());
-            target.setGameMode(GameMode.SURVIVAL);
-            target.getInventory().clear();
+            target.setGameMode(GameMode.ADVENTURE);
             giveWeapons(target);
             for (PotionEffect effect : target.getActivePotionEffects()) {
                 target.removePotionEffect(effect.getType());
             }
             scores.put(target.getUniqueId(), 0);
         }
-        playing = true;
+        state = State.PLAY;
         gameTime = 0;
+        suddenDeath = false;
+    }
+
+    void endGame() {
+        if (state != State.PLAY) return;
+        state = State.END;
+        endTime = 0;
+        for (Entity e : removeEntities) e.remove();
+        removeEntities.clear();
     }
 
     void stopGame() {
-        if (!playing) return;
-        playing = false;
+        if (state == State.IDLE) return;
+        state = State.IDLE;
         for (Entity e : removeEntities) e.remove();
         removeEntities.clear();
     }
@@ -153,7 +183,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     public void onPlayerDeath(PlayerDeathEvent event) {
         event.getDrops().clear();
         Player player = event.getEntity();
-        player.getInventory().clear();
         getServer().getScheduler().runTask(this, () -> {
                 player.setHealth(20.0);
                 player.setFoodLevel(20);
@@ -172,15 +201,16 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     public List<Player> getAlive() {
         return getServer().getOnlinePlayers().stream()
-            .filter(p -> p.getGameMode() == GameMode.SURVIVAL)
+            .filter(p -> p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE)
             .filter(Player::isValid)
             .collect(Collectors.toList());
     }
 
     @EventHandler
     public void onPlayerSidebar(PlayerSidebarEvent event) {
+        if (state == State.IDLE) return;
         List<String> ls = new ArrayList<>();
-        if (playing) {
+        if (state == State.PLAY) {
             int minutes = (gameTime / 20) / 60;
             int seconds = (gameTime / 20) % 60;
             ls.add(ChatColor.GREEN + "Time " + ChatColor.WHITE + String.format("%02d:%02d", minutes, seconds));
@@ -203,7 +233,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        if (!playing || gameTime < 200) {
+        if (state != State.PLAY || gameTime < 200) {
             event.setCancelled(true);
             return;
         }
@@ -330,6 +360,18 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        if (playing) event.getPlayer().setGameMode(GameMode.SPECTATOR);
+        Player player = event.getPlayer();
+        if (state == State.PLAY) {
+            Bukkit.getScheduler().runTask(this, () -> player.setGameMode(GameMode.SPECTATOR));
+        } else {
+            Bukkit.getScheduler().runTask(this, () -> player.setGameMode(GameMode.ADVENTURE));
+        }
+    }
+
+    @EventHandler
+    public void onEntityRegainHealth(EntityRegainHealthEvent event) {
+        if (suddenDeath && event.getRegainReason() == EntityRegainHealthEvent.RegainReason.SATIATED) {
+            event.setCancelled(true);
+        }
     }
 }
