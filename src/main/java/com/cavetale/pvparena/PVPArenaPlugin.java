@@ -94,7 +94,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 target.sendTitle(ChatColor.GREEN + winner.getName(),
                                  ChatColor.GREEN + "Wins this round!");
                 target.sendMessage(ChatColor.GREEN + winner.getName() + " wins this round!");
-                target.playSound(target.getLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, SoundCategory.MASTER, 0.2f, 2.0f);
+                target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
             }
             endGame();
             return;
@@ -104,6 +104,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.2f);
                 target.sendTitle("", ChatColor.DARK_RED + "Fight!", 0, 20, 0);
                 target.sendMessage(ChatColor.DARK_RED + "Fight!");
+                target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, SoundCategory.MASTER, 0.1f, 1.2f);
             }
         }
         if (gameTime < 200 && gameTime % 20 == 0) {
@@ -116,6 +117,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             for (Player target : getServer().getOnlinePlayers()) {
                 target.sendMessage(ChatColor.DARK_RED + "Sudden Death!");
                 target.sendTitle("", ChatColor.DARK_RED + "Sudden Death!", 0, 20, 0);
+                target.playSound(target.getLocation(), Sound.BLOCK_BELL_USE, SoundCategory.MASTER, 0.2f, 0.7f);
             }
             suddenDeath = true;
         }
@@ -215,6 +217,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             int seconds = (gameTime / 20) % 60;
             ls.add(ChatColor.GREEN + "Time " + ChatColor.WHITE + String.format("%02d:%02d", minutes, seconds));
             ls.add(ChatColor.GREEN + "Alive " + ChatColor.WHITE + getAlive().size());
+            if (suddenDeath) {
+                ls.add("" + ChatColor.DARK_RED + ChatColor.BOLD + "Sudden Death");
+            }
         }
         List<Player> list = getServer().getOnlinePlayers().stream()
             .filter(p -> scores.containsKey(p.getUniqueId()))
@@ -373,5 +378,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (suddenDeath && event.getRegainReason() == EntityRegainHealthEvent.RegainReason.SATIATED) {
             event.setCancelled(true);
         }
+    }
+
+    @EventHandler
+    public void onPlayerDropItem(PlayerDropItemEvent event) {
+        if (event.getPlayer().isOp()) return;
+        event.setCancelled(true);
     }
 }
