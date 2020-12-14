@@ -14,7 +14,7 @@ softdepend: []
 commands:
 
   pvparena:
-    aliases: []
+    aliases: [pvp]
     description: PVPArena Command
     permission: pvparena.pvparena
     usage: |-
