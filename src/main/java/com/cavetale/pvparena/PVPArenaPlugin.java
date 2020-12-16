@@ -413,9 +413,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
         }
         boolean revive = false;
-        if (tag.specialRule == SpecialRule.LIVES) {
+        if (tag.specialRule == SpecialRule.LIVES && !tag.suddenDeath) {
             Integer lives = tag.lives.get(player.getUniqueId());
-            if (lives == null || lives <= 0) {
+            if (lives == null || lives <= 1) {
+                tag.lives.remove(player.getUniqueId());
                 revive = false;
             } else {
                 tag.lives.put(player.getUniqueId(), lives - 1);
@@ -483,6 +484,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             ls.add(ChatColor.GREEN + "Rule " + ChatColor.RED + tag.specialRule.displayName);
             if (tag.suddenDeath) {
                 ls.add("" + ChatColor.DARK_RED + ChatColor.BOLD + "Sudden Death");
+            } else {
+                Integer lives = tag.lives.get(event.getPlayer().getUniqueId());
+                if (lives != null && lives > 0) {
+                    ls.add(ChatColor.GREEN + "Lives " + ChatColor.BLUE + lives);
+                }
             }
         }
         List<Player> list = getEligible().stream()
