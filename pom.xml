@@ -76,5 +76,14 @@
       <version>0.1-SNAPSHOT</version>
     </dependency>
 
+    <!-- AFK -->
+    <dependency>
+      <groupId>com.cavetale.afk</groupId>
+      <artifactId>afk</artifactId>
+      <version>0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+      <optional>true</optional>
+    </dependency>
+
   </dependencies>
 </project>

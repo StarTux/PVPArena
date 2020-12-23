@@ -8,10 +8,17 @@ api-version: 1.13
 author: StarTux
 website: https://github.com/StarTux/PVPArena
 
-depend: [Sidebar]
+depend: [Sidebar, AFK]
 softdepend: []
 
 commands:
+
+  spectator:
+    aliases: [spectate, spec]
+    description: Toggle spectator mode
+    permission: pvparena.player
+    usage: |-
+      /spec - Toggle spectator mode
 
   pvparena:
     aliases: [pvp]
@@ -21,6 +28,10 @@ commands:
       /pvparena
 
 permissions:
+
+  pvparena.player:
+    description: Play the game
+    default: op
 
   pvparena.pvparena:
     description: Use /pvparena

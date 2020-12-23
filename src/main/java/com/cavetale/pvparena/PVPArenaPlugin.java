@@ -1,5 +1,6 @@
 package com.cavetale.pvparena;
 
+import com.cavetale.afk.AFKPlugin;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
 import com.destroystokyo.paper.MaterialTags;
@@ -13,9 +14,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -81,6 +84,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     List<Entity> removeEntities = new ArrayList<>();
     String streamerName = "Cavetale";
     BossBar bossBar;
+    private Set<UUID> spectators = new HashSet<>();
 
     static final class Tag {
         State state = State.IDLE;
@@ -130,6 +134,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getScheduler().runTaskTimer(this, this::tick, 1, 1);
+        getCommand("spectator").setExecutor(new SpectatorCommand(this));
         streamerName = getConfig().getString("streamer");
         loadTag();
         if (tag.worldName != null) {
@@ -402,6 +407,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         tag.specialRule = rules.get(random.nextInt(rules.size()));
         List<Player> eligible = getEligible();
         tag.lives.clear();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!player.getWorld().equals(world)) {
+                teleport(player, world.getSpawnLocation());
+            }
+            if (AFKPlugin.isAfk(player)) {
+                spectators.add(player.getUniqueId());
+                player.sendMessage(ChatColor.GREEN + "You were marked as spectator due to inactivity");
+            }
+        }
         for (Player target : eligible) {
             resetPlayer(target);
             giveGear(target);
@@ -553,6 +567,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return Bukkit.getOnlinePlayers()
             .stream()
             .filter(p -> !p.getName().equals(streamerName))
+            .filter(p -> p.hasPermission("pvparena.player"))
+            .filter(p -> !spectators.contains(p.getUniqueId()))
             .collect(Collectors.toList());
     }
 
@@ -940,5 +956,16 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     void teleport(Player player, Location location) {
         player.teleport(spread(location));
+    }
+
+    boolean toggleSpectatorMode(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (spectators.contains(uuid)) {
+            spectators.remove(uuid);
+            return false;
+        } else {
+            spectators.add(uuid);
+            return true;
+        }
     }
 }
