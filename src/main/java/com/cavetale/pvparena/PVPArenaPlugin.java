@@ -411,9 +411,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (!player.getWorld().equals(world)) {
                 teleport(player, world.getSpawnLocation());
             }
-            if (AFKPlugin.isAfk(player)) {
+            if (!spectators.contains(player.getUniqueId()) && AFKPlugin.isAfk(player)) {
                 spectators.add(player.getUniqueId());
                 player.sendMessage(ChatColor.GREEN + "You were marked as spectator due to inactivity");
+            }
+            if (spectators.contains(player.getUniqueId())) {
+                revivePlayer(player);
+                player.setGameMode(GameMode.SPECTATOR);
             }
         }
         for (Player target : eligible) {
@@ -576,6 +580,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     public void onPlayerSidebar(PlayerSidebarEvent event) {
         // if (tag.state == State.IDLE) return;
         List<String> ls = new ArrayList<>();
+        if (spectators.contains(event.getPlayer().getUniqueId())) {
+            ls.add("" + ChatColor.YELLOW + ChatColor.BOLD + "Specating "
+                   + ChatColor.YELLOW + "(/spec)");
+        }
         if (tag.state == State.PLAY) {
             ls.add(ChatColor.GREEN + "Rule " + ChatColor.RED + tag.specialRule.displayName);
             if (tag.suddenDeath) {
@@ -965,6 +973,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             return false;
         } else {
             spectators.add(uuid);
+            revivePlayer(player);
+            player.setGameMode(GameMode.SPECTATOR);
             return true;
         }
     }
