@@ -405,7 +405,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         ensureWorldIsLoaded();
         List<SpecialRule> rules = Arrays.asList(SpecialRule.values());
         tag.specialRule = rules.get(random.nextInt(rules.size()));
-        List<Player> eligible = getEligible();
         tag.lives.clear();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!player.getWorld().equals(world)) {
@@ -420,6 +419,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 player.setGameMode(GameMode.SPECTATOR);
             }
         }
+        List<Player> eligible = getEligible();
         for (Player target : eligible) {
             resetPlayer(target);
             giveGear(target);
