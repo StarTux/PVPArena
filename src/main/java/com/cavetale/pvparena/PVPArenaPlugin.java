@@ -34,6 +34,7 @@ import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.type.Leaves;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -51,6 +52,8 @@ import org.bukkit.entity.Wolf;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.LeavesDecayEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
@@ -69,13 +72,14 @@ import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 
 public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     static final int WARM_UP_TICKS = 200;
-    static final int SUDDEN_DEATH_TICKS = 20 * 90;
+    static final int SUDDEN_DEATH_TICKS = 20 * 150;
     static final int IDLE_TICKS = 20 * 30;
     World lobbyWorld;
     World world;
@@ -112,14 +116,17 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         NONE("Regular combat"),
         HEAL_ON_KILL("Every Kill Heals"),
         GEAR_ON_KILL("Kills drop extra gear"),
-        LIVES("You get 3 lives"),
+        POTION_ON_KILL("Kills give potion effect"),
+        ENCHANT_ON_KILL("Kills enchant your gear"),
         ARROWS_INSTA_KILL("Arrows are deadly"),
         DOGS_INSTA_KILL("Dogs are deadly"),
         VAMPIRISM("Vampirism"),
+        ARROW_VAMPIRISM("Arrow Hits Heal"),
         CREEPER_REVENGE("Dying spawns a creeper"),
         SHUFFLE_ON_KILL("Kills shuffle players"),
         ZOMBIECALYPSE("Zombie Apocalypse"),
-        EXPLOSIVE_ARROWS("Explosive Arrows");
+        EXPLOSIVE_ARROWS("Explosive Arrows"),
+        DEATH_BUFF("Dying makes you Stronger");
 
         public final String displayName;
 
@@ -339,6 +346,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     block = block.getRelative(0, 1, 0);
                 }
                 if (!block.isEmpty() || !block.getRelative(0, 1, 0).isEmpty()) continue;
+                if (!block.getRelative(0, -1, 0).isSolid()) continue;
                 loc = block.getLocation().add(0.5, 0.0, 0.5);
                 boolean tooClose = false;
                 for (Player nearby : alives) {
@@ -351,6 +359,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 Zombie zombie = loc.getWorld().spawn(loc, Zombie.class, z -> {
                         z.setPersistent(false);
                         z.setRemoveWhenFarAway(true);
+                        z.setShouldBurnInDay(false);
                     });
                 removeEntities.add(zombie);
             }
@@ -385,7 +394,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             Collections.shuffle(tag.worlds);
         }
         if (tag.worlds.isEmpty()) throw new IllegalStateException("No worlds!");
-        if (tag.worldName == null || tag.worldUsed > 3) {
+        if (tag.worldName == null || tag.worldUsed >= 3) {
             tag.worldUsed = 0;
             tag.worldName = tag.worlds.remove(tag.worlds.size() - 1);
             getLogger().info("Picking world: " + tag.worldName);
@@ -426,9 +435,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             teleport(target, world.getSpawnLocation());
             tag.scores.computeIfAbsent(target.getUniqueId(), u -> 0);
             //Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + target.getName());
-            if (tag.specialRule == SpecialRule.LIVES) {
-                tag.lives.put(target.getUniqueId(), 3);
-            }
+            tag.lives.put(target.getUniqueId(), 3);
             Bukkit.getScheduler().runTaskLater(this, () -> target.setInvisible(true), 1L);
             Bukkit.getScheduler().runTaskLater(this, () -> target.setInvisible(false), 2L);
         }
@@ -485,15 +492,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 });
             removeEntities.add(creeper);
         }
-        if (tag.specialRule == SpecialRule.LIVES && !tag.suddenDeath) {
-            Integer lives = tag.lives.get(player.getUniqueId());
-            if (lives == null || lives <= 1) {
-                tag.lives.remove(player.getUniqueId());
-                revive = false;
-            } else {
-                tag.lives.put(player.getUniqueId(), lives - 1);
-                revive = true;
-            }
+        Integer lives = tag.lives.get(player.getUniqueId());
+        if (lives == null || lives <= 1) {
+            tag.lives.remove(player.getUniqueId());
+            revive = false;
+        } else {
+            int nlives = lives - 1;
+            tag.lives.put(player.getUniqueId(), lives - 1);
+            revive = true;
+            player.sendMessage("" + ChatColor.BLUE + nlives + " Lives Left");
         }
         if (revive) {
             event.setCancelled(true);
@@ -501,6 +508,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             getServer().getScheduler().runTask(this, () -> {
                     player.setGameMode(GameMode.ADVENTURE);
                     teleport(player, world.getSpawnLocation());
+                    if (tag.specialRule == SpecialRule.DEATH_BUFF) {
+                        for (ItemStack item : player.getInventory()) {
+                            if (item == null || item.getType() == Material.AIR) continue;
+                            enchant(item);
+                        }
+                        giveGear(player);
+                        player.sendMessage(ChatColor.GOLD + "You received extra gear!");
+                    }
                 });
         } else {
             event.setCancelled(true);
@@ -518,23 +533,39 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         Player killer = player.getKiller();
         if (killer != null) {
-            for (ItemStack item : killer.getInventory()) {
-                if (item == null || item.getType() == Material.AIR) continue;
-                enchant(item);
+            if (tag.specialRule == SpecialRule.ENCHANT_ON_KILL) {
+                for (ItemStack item : killer.getInventory()) {
+                    if (item == null || item.getType() == Material.AIR) continue;
+                    enchant(item);
+                }
+                killer.sendMessage(ChatColor.GOLD + "Your gear was improved");
             }
-            killer.sendMessage(ChatColor.RED + "Your gear was improved");
             if (tag.specialRule == SpecialRule.HEAL_ON_KILL) {
                 killer.setHealth(killer.getMaxHealth());
-                killer.sendMessage(ChatColor.RED + "You've been healed");
+                killer.sendMessage(ChatColor.GOLD + "You've been healed");
             }
             if (tag.specialRule == SpecialRule.GEAR_ON_KILL) {
                 giveGear(killer);
-                killer.sendMessage(ChatColor.RED + "You received extra gear");
+                killer.sendMessage(ChatColor.GOLD + "You received extra gear");
+            }
+            if (tag.specialRule == SpecialRule.POTION_ON_KILL) {
+                List<PotionEffectType> pts = Arrays.asList(PotionEffectType.INCREASE_DAMAGE,
+                                                           PotionEffectType.ABSORPTION,
+                                                           PotionEffectType.HEALTH_BOOST,
+                                                           PotionEffectType.INVISIBILITY,
+                                                           PotionEffectType.DAMAGE_RESISTANCE);
+                PotionEffectType potion = pts.get(random.nextInt(pts.size()));
+                killer.addPotionEffect(new PotionEffect(potion, 20 * 30, 1, true, false, true));
+                killer.sendMessage(ChatColor.GOLD + "You received a potion effect!");
             }
             addScore(killer, 1);
             getLogger().info(killer.getName() + " killed " + player.getName());
             for (Player target : Bukkit.getOnlinePlayers()) {
-                target.sendMessage(ChatColor.DARK_RED + killer.getName() + " killed " + player.getName());
+                if (target.equals(killer)) {
+                    target.sendMessage(ChatColor.GREEN + "You killed " + player.getName());
+                } else {
+                    target.sendMessage(ChatColor.DARK_RED + killer.getName() + " killed " + player.getName());
+                }
             }
         } else {
             for (Player target : Bukkit.getOnlinePlayers()) {
@@ -604,7 +635,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 ls.add("" + ChatColor.GREEN + getScore(player) + " " + ChatColor.DARK_GRAY + player.getName());
             } else {
                 Integer lives = tag.lives.get(player.getUniqueId());
-                String lvs = !tag.suddenDeath && lives != null && lives > 0 ? (ChatColor.BLUE + "|" + lives) : "";
+                String lvs = lives != null && lives > 0 ? (ChatColor.BLUE + "|" + lives) : "";
                 ChatColor nameColor = player.equals(event.getPlayer()) ? ChatColor.GREEN : ChatColor.WHITE;
                 ls.add("" + ChatColor.RED + "\u2665"
                        + ((int) Math.ceil(player.getHealth() * 0.5)) + lvs + " " + nameColor + player.getName());
@@ -725,8 +756,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     void giveFood(Player player) {
         switch (random.nextInt(3)) {
         case 0: giveItem(player, enchant(new ItemStack(Material.BREAD, 64))); break;
-        case 1: giveItem(player, enchant(new ItemStack(Material.MELON_SLICE, 64))); break;
-        case 2: giveItem(player, enchant(new ItemStack(Material.COOKED_BEEF, 64))); break;
+        case 1: giveItem(player, enchant(new ItemStack(Material.COOKED_BEEF, 64))); break;
+        case 2: giveItem(player, enchant(new ItemStack(Material.GOLDEN_CARROT, 64))); break;
         default: throw new IllegalStateException();
         }
     }
@@ -921,8 +952,17 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (event.getDamager() instanceof Player && tag.specialRule == SpecialRule.VAMPIRISM) {
                 Player damager = (Player) event.getDamager();
                 double dmg = event.getFinalDamage();
-                double health = Math.min(damager.getMaxHealth(), damager.getHealth() + dmg);
+                double health = Math.min(damager.getMaxHealth(), damager.getHealth() + dmg * 0.5);
                 damager.setHealth(health);
+            }
+            if (event.getDamager() instanceof AbstractArrow && tag.specialRule == SpecialRule.ARROW_VAMPIRISM) {
+                AbstractArrow arrow = (AbstractArrow) event.getDamager();
+                if (arrow.getShooter() instanceof Player) {
+                    Player damager = (Player) arrow.getShooter();
+                    double dmg = event.getFinalDamage();
+                    double health = Math.min(damager.getMaxHealth(), damager.getHealth() + dmg * 0.66);
+                    damager.setHealth(health);
+                }
             }
         }
     }
@@ -955,6 +995,25 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent event) {
         event.blockList().clear();
+    }
+
+    @EventHandler
+    public void onCreatureSpawn(CreatureSpawnEvent event) {
+        switch (event.getSpawnReason()) {
+        case CUSTOM: return;
+        default:
+            event.setCancelled(true);
+            break;
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onLeavesDecay(LeavesDecayEvent event) {
+        event.setCancelled(true);
+        Block block = event.getBlock();
+        Leaves leaves = (Leaves) block.getBlockData();
+        leaves.setPersistent(true);
+        block.setBlockData(leaves, false);
     }
 
     Location spread(Location location) {
