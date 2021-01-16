@@ -660,6 +660,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     ItemStack enchant(ItemStack item) {
         if (item.getType() == Material.TRIDENT) {
             item.addUnsafeEnchantment(Enchantment.LOYALTY, Enchantment.LOYALTY.getMaxLevel());
+            item.addUnsafeEnchantment(Enchantment.IMPALING, Enchantment.IMPALING.getMaxLevel());
+        } else if (item.getType() == Material.CROSSBOW) {
+            item.addUnsafeEnchantment(Enchantment.QUICK_CHARGE, 5);
         }
         do {
             List<Enchantment> enchs = Stream.of(Enchantment.values())
@@ -813,26 +816,47 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     ItemStack potion() {
-        ItemStack item;
-        switch (random.nextInt(7)) {
-        case 0: case 2: case 3:
-            item = new ItemStack(Material.POTION); break;
-        case 4: case 5:
-            item = new ItemStack(Material.SPLASH_POTION); break;
-        case 6:
-        default:
-            item = new ItemStack(Material.LINGERING_POTION); break;
+        if (random.nextBoolean()) {
+            // Buff
+            ItemStack  item;
+            item = new ItemStack(Material.POTION);
+            PotionMeta meta = (PotionMeta) item.getItemMeta();
+            List<PotionType> pts = Stream.of(PotionType.STRENGTH,
+                                             PotionType.TURTLE_MASTER,
+                                             PotionType.INSTANT_HEAL,
+                                             PotionType.REGEN,
+                                             PotionType.INVISIBILITY,
+                                             PotionType.SPEED,
+                                             PotionType.JUMP)
+                .filter(p -> p.getEffectType() != null)
+                .collect(Collectors.toList());
+            PotionType pt = pts.get(random.nextInt(pts.size()));
+            boolean extended = pt.isExtendable() && random.nextBoolean();
+            boolean upgraded = !extended && pt.isUpgradeable() && random.nextBoolean();
+            meta.setBasePotionData(new PotionData(pt, extended, upgraded));
+            item.setItemMeta(meta);
+            return item;
+        } else {
+            ItemStack item;
+            if (random.nextBoolean()) {
+                item = new ItemStack(Material.SPLASH_POTION);
+            } else {
+                item = new ItemStack(Material.LINGERING_POTION);
+            }
+            PotionMeta meta = (PotionMeta) item.getItemMeta();
+            List<PotionType> pts = Stream.of(PotionType.INSTANT_DAMAGE,
+                                             PotionType.POISON,
+                                             PotionType.SLOWNESS,
+                                             PotionType.WEAKNESS)
+                .filter(p -> p.getEffectType() != null)
+                .collect(Collectors.toList());
+            PotionType pt = pts.get(random.nextInt(pts.size()));
+            boolean extended = pt.isExtendable() && random.nextBoolean();
+            boolean upgraded = !extended && pt.isUpgradeable() && random.nextBoolean();
+            meta.setBasePotionData(new PotionData(pt, extended, upgraded));
+            item.setItemMeta(meta);
+            return item;
         }
-        PotionMeta meta = (PotionMeta) item.getItemMeta();
-        List<PotionType> pts = Stream.of(PotionType.values())
-            .filter(p -> p.getEffectType() != null)
-            .collect(Collectors.toList());
-        PotionType pt = pts.get(random.nextInt(pts.size()));
-        boolean extended = pt.isExtendable() && random.nextBoolean();
-        boolean upgraded = !extended && pt.isUpgradeable() && random.nextBoolean();
-        meta.setBasePotionData(new PotionData(pt, extended, upgraded));
-        item.setItemMeta(meta);
-        return item;
     }
 
     @EventHandler
