@@ -79,7 +79,7 @@ import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 
 public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     static final int WARM_UP_TICKS = 200;
-    static final int SUDDEN_DEATH_TICKS = 20 * 150;
+    static final int SUDDEN_DEATH_TICKS = 20 * 180;
     static final int IDLE_TICKS = 20 * 30;
     World lobbyWorld;
     World world;
