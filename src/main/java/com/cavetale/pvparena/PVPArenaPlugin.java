@@ -1,9 +1,13 @@
 package com.cavetale.pvparena;
 
 import com.cavetale.afk.AFKPlugin;
+import com.cavetale.pvparena.struct.AreasFile;
+import com.cavetale.pvparena.struct.Cuboid;
+import com.cavetale.pvparena.struct.Vec3i;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
 import com.destroystokyo.paper.MaterialTags;
+import com.destroystokyo.paper.Title;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -13,15 +17,14 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -45,6 +48,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Tameable;
@@ -65,7 +69,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
@@ -83,57 +87,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     static final int IDLE_TICKS = 20 * 30;
     World lobbyWorld;
     World world;
+    AreasFile areasFile;
     Tag tag;
     Random random = new Random();
     List<Entity> removeEntities = new ArrayList<>();
-    String streamerName = "Cavetale";
     BossBar bossBar;
     private Set<UUID> spectators = new HashSet<>();
-
-    static final class Tag {
-        State state = State.IDLE;
-        int gameTime = 0;
-        boolean suddenDeath = false;
-        boolean warmUp = false;
-        int endTime = 0;
-        int idleTime = 0;
-        Map<UUID, Integer> scores = new HashMap<>();
-        Map<UUID, Integer> lives = new HashMap<>();
-        List<String> worlds = new ArrayList<>();
-        String worldName = null;
-        int worldUsed = 0;
-        int totalPlayers = 0;
-        SpecialRule specialRule = SpecialRule.NONE;
-    }
-
-    enum State {
-        IDLE,
-        PLAY,
-        END;
-    }
-
-    enum SpecialRule {
-        NONE("Regular combat"),
-        HEAL_ON_KILL("Every Kill Heals"),
-        GEAR_ON_KILL("Kills drop extra gear"),
-        POTION_ON_KILL("Kills give potion effect"),
-        ENCHANT_ON_KILL("Kills enchant your gear"),
-        ARROWS_INSTA_KILL("Arrows are deadly"),
-        DOGS_INSTA_KILL("Dogs are deadly"),
-        VAMPIRISM("Vampirism"),
-        ARROW_VAMPIRISM("Arrow Hits Heal"),
-        CREEPER_REVENGE("Dying spawns a creeper"),
-        SHUFFLE_ON_KILL("Kills shuffle players"),
-        ZOMBIECALYPSE("Zombie Apocalypse"),
-        EXPLOSIVE_ARROWS("Explosive Arrows"),
-        DEATH_BUFF("Dying makes you Stronger");
-
-        public final String displayName;
-
-        SpecialRule(final String dn) {
-            this.displayName = dn;
-        }
-    }
 
     @Override
     public void onEnable() {
@@ -142,10 +101,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getScheduler().runTaskTimer(this, this::tick, 1, 1);
         getCommand("spectator").setExecutor(new SpectatorCommand(this));
-        streamerName = getConfig().getString("streamer");
         loadTag();
         if (tag.worldName != null) {
             world = getWorld(tag.worldName);
+            areasFile = loadAreasFile();
         }
         lobbyWorld = Bukkit.getWorlds().get(0);
         bossBar = Bukkit.createBossBar("PVPArena", BarColor.RED, BarStyle.SOLID);
@@ -197,10 +156,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             setIdle();
             sender.sendMessage("stopped");
             return true;
-        case "resetscore":
-            tag.scores.clear();
-            sender.sendMessage("score reset");
-            return true;
         case "save":
             saveTag();
             sender.sendMessage("tag saved");
@@ -212,6 +167,19 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         case "rule":
             tag.specialRule = SpecialRule.valueOf(args[1].toUpperCase());
             sender.sendMessage("SpecialRule = " + tag.specialRule);
+            return true;
+        case "nextworld":
+            tag.worlds = new ArrayList<>(Arrays.asList(Arrays.copyOfRange(args, 1, args.length)));
+            tag.worldUsed = 999;
+            sender.sendMessage("Worlds coming up: " + tag.worlds);
+            return true;
+        case "areas":
+            sender.sendMessage("AreasFile: " + Json.serialize(areasFile));
+            return true;
+        case "event":
+            tag.event = !tag.event;
+            saveTag();
+            sender.sendMessage("Event Mode: " + tag.event);
             return true;
         default:
             return false;
@@ -235,7 +203,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void setIdle() {
-        tag.state = State.IDLE;
+        tag.state = ArenaState.IDLE;
         tag.idleTime = 0;
         for (Player target : Bukkit.getOnlinePlayers()) {
             if (!target.getWorld().equals(lobbyWorld)) {
@@ -264,7 +232,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void tickPlay() {
-        List<Player> alive = getAlive();
+        List<Gladiator> alive = new ArrayList<>();
+        for (Gladiator it : new ArrayList<>(tag.gladiators.values())) {
+            Player player = it.getPlayer();
+            if (player == null) continue;
+            tickPlayer(it, player);
+            if (!it.gameOver) alive.add(it);
+        }
         if (tag.warmUp) {
             int seconds = (WARM_UP_TICKS - tag.gameTime) / 20;
             bossBar.setTitle(ChatColor.RED + "PvP begins in " + seconds + "s");
@@ -287,7 +261,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             return;
         }
         if (alive.size() == 1) {
-            Player winner = alive.get(0);
+            Gladiator winner = alive.get(0);
             getLogger().info("Winner " + winner.getName());
             for (Player target : world.getPlayers()) {
                 target.sendTitle(ChatColor.GREEN + winner.getName(),
@@ -295,7 +269,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 target.sendMessage(ChatColor.GREEN + winner.getName() + " wins this round!");
                 target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
             }
-            //Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winner.getName() + " Champion");
+            if (tag.event) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winner.getName() + " Champion");
             endGame();
             return;
         }
@@ -364,6 +338,45 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 removeEntities.add(zombie);
             }
         }
+        if (!tag.warmUp && (tag.gameTime % 200) == 0) {
+            Location location = findSpawnLocation();
+            ItemStack item;
+            switch (random.nextInt(3)) {
+            case 0: item = spawnWeapon(); break;
+            case 1: item = spawnArmor(); break;
+            case 2: item = spawnArrows(); break;
+            default: item = null;
+            }
+            if (item != null) {
+                Item entity = world.dropItem(location, item);
+                if (entity != null) {
+                    getLogger().info(item.getType() + " dropped at " + location.getBlockX()
+                                     + "," + location.getBlockY()
+                                     + "," + location.getBlockZ());
+                    entity.setPersistent(false);
+                    removeEntities.add(entity);
+                }
+            }
+        }
+    }
+
+    void tickPlayer(Gladiator gladiator, Player player) {
+        if (!gladiator.gameOver && gladiator.dead) {
+            long now = System.currentTimeMillis();
+            if (now > gladiator.respawnCooldown) {
+                gladiator.dead = false;
+                gladiator.invulnerable = now + 1000L;
+                respawn(player);
+            } else {
+                int seconds = (int) ((gladiator.respawnCooldown - now) / 1000L);
+                if (gladiator.respawnCooldownDisplay > seconds) {
+                    gladiator.respawnCooldownDisplay = seconds;
+                    player.sendTitle(new Title("" + ChatColor.DARK_RED + ChatColor.BOLD + (seconds + 1),
+                                               "" + ChatColor.DARK_RED + "Get Ready!",
+                                               0, 10, 10));
+                }
+            }
+        }
     }
 
     void tickEnd() {
@@ -377,44 +390,34 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    void addScore(Player player, int score) {
-        Integer sc = tag.scores.get(player.getUniqueId());
-        int newScore = sc == null ? score : sc + score;
-        tag.scores.put(player.getUniqueId(), newScore);
+    @Nullable Gladiator getGladiator(Player player) {
+        return tag.gladiators.get(player.getUniqueId());
     }
 
     int getScore(Player player) {
-        Integer sc = tag.scores.get(player.getUniqueId());
-        return sc != null ? sc : 0;
+        Gladiator gladiator = getGladiator(player);
+        return gladiator != null ? gladiator.score : 0;
     }
 
     void ensureWorldIsLoaded() {
+        if (tag.worldName != null && tag.worldUsed < 3) return;
+        tag.worldUsed = 0;
         if (tag.worlds.isEmpty()) {
             tag.worlds = new ArrayList<>(getConfig().getStringList("worlds"));
             Collections.shuffle(tag.worlds);
         }
         if (tag.worlds.isEmpty()) throw new IllegalStateException("No worlds!");
-        if (tag.worldName == null || tag.worldUsed >= 3) {
-            tag.worldUsed = 0;
-            tag.worldName = tag.worlds.remove(tag.worlds.size() - 1);
-            getLogger().info("Picking world: " + tag.worldName);
-        }
+        tag.worldName = tag.worlds.remove(tag.worlds.size() - 1);
+        getLogger().info("Picking world: " + tag.worldName);
         world = getWorld(tag.worldName);
-        world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
-        world.setGameRule(GameRule.MOB_GRIEFING, false);
-        world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
-        world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
-        world.setGameRule(GameRule.DO_FIRE_TICK, false);
-        world.setGameRule(GameRule.DO_FIRE_TICK, false);
-        world.setGameRule(GameRule.SHOW_DEATH_MESSAGES, true);
-        world.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, false);
+        areasFile = loadAreasFile();
     }
 
     void startGame() {
         ensureWorldIsLoaded();
-        List<SpecialRule> rules = Arrays.asList(SpecialRule.values());
+        List<SpecialRule> rules = new ArrayList<>(Arrays.asList(SpecialRule.values()));
+        rules.remove(SpecialRule.NONE);
         tag.specialRule = rules.get(random.nextInt(rules.size()));
-        tag.lives.clear();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!player.getWorld().equals(world)) {
                 teleport(player, world.getSpawnLocation());
@@ -424,22 +427,28 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 player.sendMessage(ChatColor.GREEN + "You were marked as spectator due to inactivity");
             }
             if (spectators.contains(player.getUniqueId())) {
-                revivePlayer(player);
+                preparePlayer(player);
                 player.setGameMode(GameMode.SPECTATOR);
             }
         }
+        tag.gladiators.clear();
+        tag.limitedLives = true;
         List<Player> eligible = getEligible();
         for (Player target : eligible) {
             resetPlayer(target);
             giveGear(target);
-            teleport(target, world.getSpawnLocation());
-            tag.scores.computeIfAbsent(target.getUniqueId(), u -> 0);
-            //Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + target.getName());
-            tag.lives.put(target.getUniqueId(), 3);
+            target.teleport(findSpawnLocation(), TeleportCause.PLUGIN);
             Bukkit.getScheduler().runTaskLater(this, () -> target.setInvisible(true), 1L);
             Bukkit.getScheduler().runTaskLater(this, () -> target.setInvisible(false), 2L);
+            Gladiator gladiator = new Gladiator(target);
+            gladiator.lives = tag.limitedLives ? 3 : 0;
+            tag.gladiators.put(target.getUniqueId(), gladiator);
+            if (tag.event) {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + target.getName());
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + target.getName() + " Gladiator");
+            }
         }
-        tag.state = State.PLAY;
+        tag.state = ArenaState.PLAY;
         tag.gameTime = 0;
         tag.suddenDeath = false;
         tag.warmUp = true;
@@ -450,10 +459,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     void resetPlayer(Player target) {
         target.getInventory().clear();
         target.setGameMode(GameMode.ADVENTURE);
-        revivePlayer(target);
+        preparePlayer(target);
     }
 
-    void revivePlayer(Player target) {
+    void preparePlayer(Player target) {
         target.setHealth(20.0);
         target.setFoodLevel(20);
         target.setSaturation(20f);
@@ -465,10 +474,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void endGame() {
-        if (tag.state != State.PLAY) return;
+        if (tag.state != ArenaState.PLAY) return;
         cleanUpGame();
         tag.endTime = 0;
-        tag.state = State.END;
+        tag.state = ArenaState.END;
         saveTag();
     }
 
@@ -481,7 +490,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     public void onPlayerDeath(PlayerDeathEvent event) {
         event.getDrops().clear();
         Player player = event.getEntity();
-        boolean revive = false;
+        Gladiator gladiator = getGladiator(player);
+        if (gladiator == null) return;
         if (tag.specialRule == SpecialRule.CREEPER_REVENGE) {
             Creeper creeper = player.getWorld().spawn(player.getLocation(), Creeper.class, c -> {
                     c.setPersistent(false);
@@ -492,47 +502,41 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 });
             removeEntities.add(creeper);
         }
-        Integer lives = tag.lives.get(player.getUniqueId());
-        if (lives == null || lives <= 1) {
-            tag.lives.remove(player.getUniqueId());
-            revive = false;
-        } else {
-            int nlives = lives - 1;
-            tag.lives.put(player.getUniqueId(), lives - 1);
-            revive = true;
-            player.sendMessage("" + ChatColor.BLUE + nlives + " Lives Left");
-        }
-        if (revive) {
-            event.setCancelled(true);
-            revivePlayer(player);
-            getServer().getScheduler().runTask(this, () -> {
-                    player.setGameMode(GameMode.ADVENTURE);
-                    teleport(player, world.getSpawnLocation());
-                    if (tag.specialRule == SpecialRule.DEATH_BUFF) {
-                        for (ItemStack item : player.getInventory()) {
-                            if (item == null || item.getType() == Material.AIR) continue;
-                            enchant(item);
-                        }
-                        giveGear(player);
-                        player.sendMessage(ChatColor.GOLD + "You received extra gear!");
-                    }
-                });
-        } else {
-            event.setCancelled(true);
-            for (Entity entity : removeEntities) {
-                if (entity instanceof Tameable) {
-                    Tameable tameable = (Tameable) entity;
-                    if (player.equals(tameable.getOwner())) {
-                        entity.remove();
-                    }
+        if (tag.limitedLives) {
+            if (gladiator.lives <= 1) {
+                gladiator.lives = 0;
+                gladiator.gameOver = true;
+                player.sendTitle(new Title("" + ChatColor.DARK_RED + "Game Over",
+                                           "" + ChatColor.DARK_RED + "Wait for the next round"));
+            } else {
+                gladiator.lives -= 1;
+                if (gladiator.lives == 1) {
+                    player.sendTitle(new Title("" + ChatColor.BLUE + "One Live",
+                                               "" + ChatColor.BLUE + "Last Chance"));
+                } else {
+                    player.sendTitle(new Title("" + ChatColor.BLUE + gladiator.lives + " Lives",
+                                               "" + ChatColor.BLUE + "Respawn soon!"));
                 }
             }
-            player.setHealth(20.0);
-            player.setFoodLevel(20);
-            player.setGameMode(GameMode.SPECTATOR);
         }
+        event.setCancelled(true);
+        for (Entity entity : removeEntities) {
+            if (entity instanceof Tameable) {
+                Tameable tameable = (Tameable) entity;
+                if (player.equals(tameable.getOwner())) {
+                    entity.remove();
+                }
+            }
+        }
+        preparePlayer(player);
+        player.setGameMode(GameMode.SPECTATOR);
+        Fireworks.spawnFirework(player.getLocation()).detonate();
+        gladiator.dead = true;
+        gladiator.respawnCooldown = System.currentTimeMillis() + 5000;
+        gladiator.respawnCooldownDisplay = 3;
         Player killer = player.getKiller();
-        if (killer != null) {
+        Gladiator gladiator2 = killer != null ? getGladiator(killer) : null;
+        if (gladiator2 != null) {
             if (tag.specialRule == SpecialRule.ENCHANT_ON_KILL) {
                 for (ItemStack item : killer.getInventory()) {
                     if (item == null || item.getType() == Material.AIR) continue;
@@ -558,7 +562,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 killer.addPotionEffect(new PotionEffect(potion, 20 * 30, 1, true, false, true));
                 killer.sendMessage(ChatColor.GOLD + "You received a potion effect!");
             }
-            addScore(killer, 1);
+            gladiator2.score += 1;
             getLogger().info(killer.getName() + " killed " + player.getName());
             for (Player target : Bukkit.getOnlinePlayers()) {
                 if (target.equals(killer)) {
@@ -582,12 +586,80 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     Collections.shuffle(locs, random);
                     int i = 0;
                     for (Player alive : alives) {
-                        alive.teleport(locs.get(i++), PlayerTeleportEvent.TeleportCause.PLUGIN);
+                        alive.teleport(locs.get(i++), TeleportCause.PLUGIN);
                     }
                     for (Player target : Bukkit.getOnlinePlayers()) {
                         target.sendMessage(ChatColor.GREEN + "Shuffle!");
                     }
                 });
+        }
+    }
+
+    List<Vec3i> findSpawnVectors() {
+        if (areasFile.areas.spawn.isEmpty()) {
+            return Arrays.asList(Vec3i.of(world.getSpawnLocation()));
+        }
+        Set<Vec3i> result = new HashSet<>();
+        for (Cuboid cuboid : areasFile.areas.spawn) {
+            result.addAll(cuboid.enumerate());
+        }
+        return new ArrayList<>(result);
+    }
+
+    Vec3i findSpawnVector() {
+        List<Vec3i> blocks = findSpawnVectors();
+        if (blocks.size() == 1) return blocks.get(0);
+        List<Vec3i> players = new ArrayList<>();
+        for (Gladiator gladiator : tag.gladiators.values()) {
+            if (gladiator.dead || gladiator.gameOver) continue;
+            Player player = gladiator.getPlayer();
+            if (player == null) continue;
+            players.add(Vec3i.of(player.getLocation()));
+        }
+        if (players.isEmpty()) {
+            return blocks.get(random.nextInt(blocks.size()));
+        }
+        Vec3i result = null;
+        int maxDist = 0;
+        // Goal: Find the spawn location farthest away from any other player.
+        for (Vec3i block : blocks) {
+            int minDist = Integer.MAX_VALUE;
+            // Find distance to closest player
+            for (Vec3i player : players) {
+                int dist = player.distanceSquared(block);
+                if (dist < minDist) {
+                    minDist = dist;
+                }
+            }
+            // Update result if farther than best result
+            if (result == null || minDist > maxDist) {
+                maxDist = minDist;
+                result = block;
+            }
+        }
+        return result;
+    }
+
+    Location findSpawnLocation() {
+        Vec3i vector = findSpawnVector();
+        Location location = world.getBlockAt(vector.x, vector.y, vector.z).getLocation();
+        location = location.add(0.5, 0.1, 0.5);
+        location.setYaw((float) (random.nextDouble() * 360.0));
+        return location;
+    }
+
+    void respawn(Player player) {
+        Location spawnLocation = findSpawnLocation();
+        preparePlayer(player);
+        player.setGameMode(GameMode.ADVENTURE);
+        player.teleport(spawnLocation, TeleportCause.PLUGIN);
+        if (tag.specialRule == SpecialRule.DEATH_BUFF) {
+            for (ItemStack item : player.getInventory()) {
+                if (item == null || item.getType() == Material.AIR) continue;
+                enchant(item);
+            }
+            giveGear(player);
+            player.sendMessage(ChatColor.GOLD + "You received extra gear!");
         }
     }
 
@@ -601,7 +673,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     public List<Player> getEligible() {
         return Bukkit.getOnlinePlayers()
             .stream()
-            .filter(p -> !p.getName().equals(streamerName))
+            .filter(p -> !p.isPermissionSet("group.streamer") || !p.hasPermission("group.streamer"))
             .filter(p -> p.hasPermission("pvparena.player"))
             .filter(p -> !spectators.contains(p.getUniqueId()))
             .collect(Collectors.toList());
@@ -609,36 +681,33 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerSidebar(PlayerSidebarEvent event) {
-        // if (tag.state == State.IDLE) return;
+        // if (tag.state == ArenaState.IDLE) return;
         List<String> ls = new ArrayList<>();
         if (spectators.contains(event.getPlayer().getUniqueId())) {
             ls.add("" + ChatColor.YELLOW + ChatColor.BOLD + "Specating "
                    + ChatColor.YELLOW + "(/spec)");
         }
-        if (tag.state == State.PLAY) {
+        if (tag.state == ArenaState.PLAY) {
             ls.add(ChatColor.GREEN + "Rule " + ChatColor.RED + tag.specialRule.displayName);
             if (tag.suddenDeath) {
                 ls.add("" + ChatColor.DARK_RED + ChatColor.BOLD + "Sudden Death");
             }
         }
-        List<Player> list = getEligible().stream()
-            .filter(p -> tag.scores.containsKey(p.getUniqueId()))
-            .sorted((b, a) -> {
-                    int c = Integer.compare(isAlive(a) ? 1 : 0,
-                                            isAlive(b) ? 1 : 0);
-                    if (c != 0) return c;
-                    return Integer.compare(getScore(a), getScore(b));
-                })
-            .collect(Collectors.toList());
-        for (Player player : list) {
-            if (player.getGameMode() == GameMode.SPECTATOR) {
-                ls.add("" + ChatColor.GREEN + getScore(player) + " " + ChatColor.DARK_GRAY + player.getName());
+        List<Gladiator> gladiators = new ArrayList<>(tag.gladiators.values());
+        Collections.sort(gladiators, (b, a) -> {
+                int c = Integer.compare(!a.gameOver ? 1 : 0,
+                                        !b.gameOver ? 1 : 0);
+                if (c != 0) return c;
+                return Integer.compare(a.score, b.score);
+            });
+        for (Gladiator gladiator : gladiators) {
+            if (gladiator.gameOver) {
+                ls.add("" + ChatColor.GREEN + gladiator.score + " " + ChatColor.DARK_GRAY + gladiator.name);
             } else {
-                Integer lives = tag.lives.get(player.getUniqueId());
-                String lvs = lives != null && lives > 0 ? (ChatColor.BLUE + "|" + lives) : "";
-                ChatColor nameColor = player.equals(event.getPlayer()) ? ChatColor.GREEN : ChatColor.WHITE;
-                ls.add("" + ChatColor.RED + "\u2665"
-                       + ((int) Math.ceil(player.getHealth() * 0.5)) + lvs + " " + nameColor + player.getName());
+                String lvs = gladiator.lives > 0 ? (ChatColor.BLUE + "|" + gladiator.lives) : "";
+                ChatColor nameColor = gladiator.is(event.getPlayer()) ? ChatColor.GREEN : ChatColor.WHITE;
+                ls.add("" + ChatColor.RED + "\u2764"
+                       + ((int) Math.ceil(gladiator.health * 0.5)) + lvs + " " + nameColor + gladiator.name);
             }
         }
         if (ls.isEmpty()) return;
@@ -651,7 +720,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        if (tag.state != State.PLAY || tag.gameTime < 200) {
+        if (tag.state != ArenaState.PLAY || tag.gameTime < 200) {
             event.setCancelled(true);
             return;
         }
@@ -662,11 +731,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             item.addUnsafeEnchantment(Enchantment.LOYALTY, Enchantment.LOYALTY.getMaxLevel());
             item.addUnsafeEnchantment(Enchantment.IMPALING, Enchantment.IMPALING.getMaxLevel());
         } else if (item.getType() == Material.CROSSBOW) {
-            item.addUnsafeEnchantment(Enchantment.QUICK_CHARGE, 5);
+            item.addUnsafeEnchantment(Enchantment.QUICK_CHARGE, 4);
         }
         do {
             List<Enchantment> enchs = Stream.of(Enchantment.values())
                 .filter(e -> e.canEnchantItem(item))
+                .filter(e -> !e.isCursed())
                 .collect(Collectors.toList());
             if (enchs.isEmpty()) return item;
             Collections.shuffle(enchs);
@@ -677,10 +747,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void giveGear(Player player) {
-        giveWeapon(player);
-        giveFood(player);
-        giveArmor(player);
+        ItemStack weapon = spawnWeapon();
+        giveItem(player, weapon);
+        giveItem(player, spawnFood());
+        giveItem(player, spawnArmor());
         giveBonus(player);
+        if (weapon.getType() == Material.BOW || weapon.getType() == Material.CROSSBOW) {
+            giveItem(player, spawnArrows());
+        }
     }
 
     boolean setEquipment(Player player, EquipmentSlot slot, ItemStack item) {
@@ -723,62 +797,69 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    void giveWeapon(Player player) {
+    ItemStack spawnArrows() {
         switch (random.nextInt(8)) {
+        case 0: case 1: case 2:
+            return enchant(new ItemStack(Material.ARROW, 64));
+        case 3:
+            return enchant(new ItemStack(Material.SPECTRAL_ARROW, 64));
+        case 4:
+            return Items.potionItem(new ItemStack(Material.TIPPED_ARROW, 32), PotionType.POISON);
+        case 5:
+            return Items.potionItem(new ItemStack(Material.TIPPED_ARROW, 32), PotionType.INSTANT_DAMAGE);
+        case 6:
+            return Items.potionItem(new ItemStack(Material.TIPPED_ARROW, 64), PotionType.SLOWNESS);
+        case 7:
+            return Items.potionItem(new ItemStack(Material.TIPPED_ARROW, 32), PotionEffectType.WITHER, 200);
+        default: throw new IllegalStateException();
+        }
+    }
+
+    ItemStack spawnWeapon() {
+        switch (random.nextInt(10)) {
         case 0:
         case 1:
-            giveItem(player, enchant(new ItemStack(Material.BOW)));
-            switch (random.nextInt(4)) {
-            case 0: case 1: case 2:
-                giveItem(player, enchant(new ItemStack(Material.ARROW, 64))); break;
-            case 3:
-                giveItem(player, enchant(new ItemStack(Material.SPECTRAL_ARROW, 64))); break;
-            default: throw new IllegalStateException();
-            }
-            break;
         case 2:
-            giveItem(player, enchant(new ItemStack(Material.CROSSBOW)));
-            switch (random.nextInt(4)) {
-            case 0: case 1: case 2:
-                giveItem(player, enchant(new ItemStack(Material.ARROW, 64))); break;
-            case 3:
-                giveItem(player, enchant(new ItemStack(Material.SPECTRAL_ARROW, 64))); break;
-            default: throw new IllegalStateException();
-            }
-            break;
+            return enchant(new ItemStack(Material.BOW));
         case 3:
-            giveItem(player, enchant(new ItemStack(Material.TRIDENT))); break;
-        case 4: giveItem(player, enchant(new ItemStack(Material.DIAMOND_SWORD))); break;
-        case 5: giveItem(player, enchant(new ItemStack(Material.NETHERITE_SWORD))); break;
-        case 6: giveItem(player, enchant(new ItemStack(Material.DIAMOND_AXE))); break;
-        case 7: giveItem(player, enchant(new ItemStack(Material.NETHERITE_AXE))); break;
+        case 4:
+            return enchant(new ItemStack(Material.CROSSBOW));
+        case 5:
+        case 6:
+            return enchant(new ItemStack(Material.DIAMOND_SWORD));
+        case 7:
+            return enchant(new ItemStack(Material.NETHERITE_SWORD));
+        case 8:
+            return enchant(new ItemStack(Material.DIAMOND_AXE));
+        case 9:
+            return enchant(new ItemStack(Material.NETHERITE_AXE));
         default: throw new IllegalStateException();
         }
     }
 
-    void giveFood(Player player) {
+    ItemStack spawnFood() {
         switch (random.nextInt(3)) {
-        case 0: giveItem(player, enchant(new ItemStack(Material.BREAD, 64))); break;
-        case 1: giveItem(player, enchant(new ItemStack(Material.COOKED_BEEF, 64))); break;
-        case 2: giveItem(player, enchant(new ItemStack(Material.GOLDEN_CARROT, 64))); break;
+        case 0: return enchant(new ItemStack(Material.BREAD, 64));
+        case 1: return enchant(new ItemStack(Material.COOKED_BEEF, 64));
+        case 2: return enchant(new ItemStack(Material.GOLDEN_CARROT, 64));
         default: throw new IllegalStateException();
         }
     }
 
-    void giveArmor(Player player) {
+    ItemStack spawnArmor() {
         switch (random.nextInt(12)) {
-        case 0: giveItem(player, enchant(new ItemStack(Material.IRON_CHESTPLATE))); break;
-        case 1: giveItem(player, enchant(new ItemStack(Material.DIAMOND_CHESTPLATE))); break;
-        case 2: giveItem(player, enchant(new ItemStack(Material.NETHERITE_CHESTPLATE))); break;
-        case 3: giveItem(player, enchant(new ItemStack(Material.IRON_LEGGINGS))); break;
-        case 4: giveItem(player, enchant(new ItemStack(Material.DIAMOND_LEGGINGS))); break;
-        case 5: giveItem(player, enchant(new ItemStack(Material.NETHERITE_LEGGINGS))); break;
-        case 6: giveItem(player, enchant(new ItemStack(Material.IRON_HELMET))); break;
-        case 7: giveItem(player, enchant(new ItemStack(Material.DIAMOND_HELMET))); break;
-        case 8: giveItem(player, enchant(new ItemStack(Material.NETHERITE_HELMET))); break;
-        case 9: giveItem(player, enchant(new ItemStack(Material.IRON_BOOTS))); break;
-        case 10: giveItem(player, enchant(new ItemStack(Material.DIAMOND_BOOTS))); break;
-        case 11: giveItem(player, enchant(new ItemStack(Material.NETHERITE_BOOTS))); break;
+        case 0: return enchant(new ItemStack(Material.IRON_CHESTPLATE));
+        case 1: return enchant(new ItemStack(Material.DIAMOND_CHESTPLATE));
+        case 2: return enchant(new ItemStack(Material.NETHERITE_CHESTPLATE));
+        case 3: return enchant(new ItemStack(Material.IRON_LEGGINGS));
+        case 4: return enchant(new ItemStack(Material.DIAMOND_LEGGINGS));
+        case 5: return enchant(new ItemStack(Material.NETHERITE_LEGGINGS));
+        case 6: return enchant(new ItemStack(Material.IRON_HELMET));
+        case 7: return enchant(new ItemStack(Material.DIAMOND_HELMET));
+        case 8: return enchant(new ItemStack(Material.NETHERITE_HELMET));
+        case 9: return enchant(new ItemStack(Material.IRON_BOOTS));
+        case 10: return enchant(new ItemStack(Material.DIAMOND_BOOTS));
+        case 11: return enchant(new ItemStack(Material.NETHERITE_BOOTS));
         default: throw new IllegalStateException();
         }
     }
@@ -862,7 +943,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        if (tag.state == State.PLAY) {
+        if (tag.state == ArenaState.PLAY) {
             Bukkit.getScheduler().runTask(this, () -> player.setGameMode(GameMode.SPECTATOR));
         } else {
             Bukkit.getScheduler().runTask(this, () -> player.setGameMode(GameMode.ADVENTURE));
@@ -951,12 +1032,20 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     World getWorld(String worldName) {
         World result = Bukkit.getWorld("pvparena_" + worldName);
         if (result == null) result = loadWorld(worldName);
+        result.setGameRule(GameRule.DO_MOB_SPAWNING, false);
+        result.setGameRule(GameRule.MOB_GRIEFING, false);
+        result.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
+        result.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
+        result.setGameRule(GameRule.DO_FIRE_TICK, false);
+        result.setGameRule(GameRule.DO_FIRE_TICK, false);
+        result.setGameRule(GameRule.SHOW_DEATH_MESSAGES, true);
+        result.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, false);
         return result;
     }
 
     @EventHandler
     void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
-        if (tag.state != State.IDLE && world != null) {
+        if (tag.state != ArenaState.IDLE && world != null) {
             event.setSpawnLocation(spread(world.getSpawnLocation()));
         } else {
             event.setSpawnLocation(spread(lobbyWorld.getSpawnLocation()));
@@ -967,6 +1056,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (event.getEntity() instanceof Player) {
             Player damaged = (Player) event.getEntity();
+            Gladiator gladiator = getGladiator(damaged);
+            if (gladiator != null && gladiator.invulnerable > System.currentTimeMillis()) {
+                event.setCancelled(true);
+                return;
+            }
             if (event.getDamager() instanceof AbstractArrow && tag.specialRule == SpecialRule.ARROWS_INSTA_KILL) {
                 event.setDamage(2048.0);
             }
@@ -993,7 +1087,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onProjectileLaunch(ProjectileLaunchEvent event) {
-        if (tag.state != State.PLAY) return;
+        if (tag.state != ArenaState.PLAY) return;
         if (!event.getEntity().getWorld().equals(world)) return;
         Projectile projectile = event.getEntity();
         removeEntities.add(projectile);
@@ -1002,7 +1096,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerItemDamage(PlayerItemDamageEvent event) {
-        if (tag.state != State.PLAY) return;
+        if (tag.state != ArenaState.PLAY) return;
         if (!event.getPlayer().getWorld().equals(world)) return;
         event.setCancelled(true);
     }
@@ -1010,7 +1104,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onProjectileHit(ProjectileHitEvent event) {
         if (event.getEntity() instanceof AbstractArrow && event.getEntity().getWorld().equals(world)) {
-            if (tag.state == State.PLAY && tag.specialRule == SpecialRule.EXPLOSIVE_ARROWS) {
+            if (tag.state == ArenaState.PLAY && tag.specialRule == SpecialRule.EXPLOSIVE_ARROWS) {
                 event.getEntity().getWorld().createExplosion(event.getEntity(), event.getEntity().getLocation(), 2.0f, false, false);
             }
         }
@@ -1046,7 +1140,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void teleport(Player player, Location location) {
-        player.teleport(spread(location));
+        player.teleport(spread(location), TeleportCause.PLUGIN);
     }
 
     boolean toggleSpectatorMode(Player player) {
@@ -1056,9 +1150,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             return false;
         } else {
             spectators.add(uuid);
-            revivePlayer(player);
+            preparePlayer(player);
             player.setGameMode(GameMode.SPECTATOR);
             return true;
         }
+    }
+
+    AreasFile loadAreasFile() {
+        File folder = new File(world.getWorldFolder(), "areas");
+        File file = new File(folder, "pvparena.json");
+        return Json.load(file, AreasFile.class, AreasFile::new);
     }
 }
