@@ -22,5 +22,6 @@ public final class Tag implements Serializable {
     Map<UUID, Gladiator> gladiators = new HashMap<>();
     boolean limitedLives = false;
     boolean event = false;
+    long shuffleCooldown; // epoch
 }
 

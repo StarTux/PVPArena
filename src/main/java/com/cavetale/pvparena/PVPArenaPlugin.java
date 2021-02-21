@@ -173,6 +173,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             tag.worldUsed = 999;
             sender.sendMessage("Worlds coming up: " + tag.worlds);
             return true;
+        case "skip":
+            tag.worldUsed = 999;
+            sender.sendMessage("New world next round!");
+            return true;
         case "areas":
             sender.sendMessage("AreasFile: " + Json.serialize(areasFile));
             return true;
@@ -305,7 +309,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         if (!tag.warmUp && tag.gameTime % 20 == 0 && tag.specialRule == SpecialRule.ZOMBIECALYPSE) {
             List<Player> alives = getAlive();
+            int zombieCount = 0;
+            for (Entity entity : removeEntities) {
+                if (entity instanceof Zombie) zombieCount += 1;
+            }
             for (Player player : alives) {
+                if (zombieCount >= 30) break;
                 Location loc = player.getLocation();
                 Vector vec = new Vector(random.nextDouble(), 0.0, random.nextDouble());
                 vec = vec.normalize().multiply(10.0);
@@ -331,11 +340,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 }
                 if (tooClose) continue;
                 Zombie zombie = loc.getWorld().spawn(loc, Zombie.class, z -> {
+                        z.setHealth(1.0);
                         z.setPersistent(false);
                         z.setRemoveWhenFarAway(true);
                         z.setShouldBurnInDay(false);
                     });
                 removeEntities.add(zombie);
+                zombieCount += 1;
             }
         }
         if (!tag.warmUp && (tag.gameTime % 200) == 0) {
@@ -358,6 +369,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 }
             }
         }
+        removeEntities.removeIf(e -> !e.isValid());
     }
 
     void tickPlayer(Gladiator gladiator, Player player) {
@@ -376,6 +388,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                                                0, 10, 10));
                 }
             }
+        } else {
+            gladiator.health = player.getHealth();
         }
     }
 
@@ -511,7 +525,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             } else {
                 gladiator.lives -= 1;
                 if (gladiator.lives == 1) {
-                    player.sendTitle(new Title("" + ChatColor.BLUE + "One Live",
+                    player.sendTitle(new Title("" + ChatColor.BLUE + "One Life",
                                                "" + ChatColor.BLUE + "Last Chance"));
                 } else {
                     player.sendTitle(new Title("" + ChatColor.BLUE + gladiator.lives + " Lives",
@@ -549,7 +563,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 killer.sendMessage(ChatColor.GOLD + "You've been healed");
             }
             if (tag.specialRule == SpecialRule.GEAR_ON_KILL) {
-                giveGear(killer);
+                ItemStack item;
+                switch (random.nextInt(3)) {
+                case 0: item = spawnWeapon(); break;
+                case 1: item = spawnArmor(); break;
+                case 2: item = spawnArrows(); break;
+                default: item = null;
+                }
+                if (item != null) giveItem(player, item);
                 killer.sendMessage(ChatColor.GOLD + "You received extra gear");
             }
             if (tag.specialRule == SpecialRule.POTION_ON_KILL) {
@@ -576,7 +597,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 target.sendMessage(ChatColor.DARK_RED + player.getName() + " died");
             }
         }
-        if (tag.specialRule == SpecialRule.SHUFFLE_ON_KILL) {
+        if (tag.specialRule == SpecialRule.SHUFFLE_ON_KILL && System.currentTimeMillis() > tag.shuffleCooldown) {
+            tag.shuffleCooldown = System.currentTimeMillis() + 10000L;
             Bukkit.getScheduler().runTask(this, () -> {
                     List<Location> locs = new ArrayList<>();
                     List<Player> alives = getAlive();
@@ -1152,6 +1174,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             spectators.add(uuid);
             preparePlayer(player);
             player.setGameMode(GameMode.SPECTATOR);
+            tag.gladiators.remove(uuid);
             return true;
         }
     }
