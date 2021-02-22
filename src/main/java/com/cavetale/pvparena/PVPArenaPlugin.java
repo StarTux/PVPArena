@@ -544,6 +544,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         preparePlayer(player);
         player.setGameMode(GameMode.SPECTATOR);
+        if (player.getLastDamageCause() instanceof EntityDamageEvent) {
+            EntityDamageEvent lastDamage = (EntityDamageEvent) player.getLastDamageCause();
+            switch (lastDamage.getCause()) {
+            case VOID:
+                player.teleport(world.getSpawnLocation(), TeleportCause.PLUGIN);
+            default: break;
+            }
+        }
         Fireworks.spawnFirework(player.getLocation()).detonate();
         gladiator.dead = true;
         gladiator.respawnCooldown = System.currentTimeMillis() + 5000;
