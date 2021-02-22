@@ -626,11 +626,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     List<Vec3i> findSpawnVectors() {
-        if (areasFile.areas.spawn.isEmpty()) {
+        if (areasFile.getAreas().getSpawn().isEmpty()) {
             return Arrays.asList(Vec3i.of(world.getSpawnLocation()));
         }
         Set<Vec3i> result = new HashSet<>();
-        for (Cuboid cuboid : areasFile.areas.spawn) {
+        for (Cuboid cuboid : areasFile.getAreas().getSpawn()) {
             result.addAll(cuboid.enumerate());
         }
         return new ArrayList<>(result);
