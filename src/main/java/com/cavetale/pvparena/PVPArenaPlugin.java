@@ -48,6 +48,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -1076,6 +1077,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Firework) {
+            event.setCancelled(true);
+            return;
+        }
         if (event.getEntity() instanceof Player) {
             Player damaged = (Player) event.getEntity();
             Gladiator gladiator = getGladiator(damaged);
