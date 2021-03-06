@@ -1,5 +1,8 @@
 package com.cavetale.pvparena.struct;
 
+import lombok.Data;
+
+@Data
 public final class AreasFile {
-    public Areas areas = new Areas();
+    protected Areas areas = new Areas();
 }
