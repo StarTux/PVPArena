@@ -46,9 +46,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.AbstractArrow;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Firework;
+import org.bukkit.entity.Hanging;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -66,7 +68,12 @@ import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.hanging.HangingBreakByEntityEvent;
+import org.bukkit.event.hanging.HangingBreakEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -1089,6 +1096,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             event.setCancelled(true);
             return;
         }
+        if (event.getEntity() instanceof Hanging) {
+            event.setCancelled(true);
+            return;
+        }
+        if (event.getEntity() instanceof ArmorStand) {
+            event.setCancelled(true);
+            return;
+        }
         if (event.getEntity() instanceof Player) {
             Player damaged = (Player) event.getEntity();
             Gladiator gladiator = getGladiator(damaged);
@@ -1196,5 +1211,40 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         File folder = new File(world.getWorldFolder(), "areas");
         File file = new File(folder, "pvparena.json");
         return Json.load(file, AreasFile.class, AreasFile::new);
+    }
+
+    @EventHandler
+    void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
+        event.setCancelled(true);
+    }
+
+    @EventHandler
+    void onHangingBreak(HangingBreakEvent event) {
+        event.setCancelled(true);
+    }
+
+    @EventHandler
+    void onHangingBreakByEntity(HangingBreakByEntityEvent event) {
+        event.setCancelled(true);
+    }
+
+    @EventHandler
+    void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+        Entity e = event.getRightClicked();
+        if (e instanceof Hanging) {
+            event.setCancelled(true);
+        } else if (e instanceof ArmorStand) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event) {
+        Entity e = event.getRightClicked();
+        if (e instanceof Hanging) {
+            event.setCancelled(true);
+        } else if (e instanceof ArmorStand) {
+            event.setCancelled(true);
+        }
     }
 }
