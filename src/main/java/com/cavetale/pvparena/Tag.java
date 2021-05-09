@@ -18,10 +18,12 @@ public final class Tag implements Serializable {
     String worldName = null;
     int worldUsed = 0;
     int totalPlayers = 0;
+    WinRule winRule = WinRule.LAST_SURVIVOR;
     SpecialRule specialRule = SpecialRule.NONE;
     Map<UUID, Gladiator> gladiators = new HashMap<>();
     boolean limitedLives = false;
     boolean event = false;
     long shuffleCooldown; // epoch
+    UUID moleUuid;
 }
 

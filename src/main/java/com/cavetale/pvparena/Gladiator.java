@@ -16,6 +16,8 @@ public final class Gladiator implements Serializable {
     protected final String name;
     protected int lives;
     protected int score;
+    protected int kills;
+    protected int deaths;
     protected boolean gameOver = false;
     protected double health;
     protected boolean dead = false;
