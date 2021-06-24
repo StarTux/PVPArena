@@ -652,7 +652,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         gladiator.respawnCooldown = System.currentTimeMillis() + 5000;
         gladiator.respawnCooldownDisplay = 3;
         Player killer = player.getKiller();
-        Gladiator gladiator2 = killer != null ? getGladiator(killer) : null;
+        Gladiator gladiator2 = killer != null && !killer.equals(player)
+            ? getGladiator(killer)
+            : null;
         if (gladiator2 != null) {
             if (tag.specialRule == SpecialRule.ENCHANT_ON_KILL) {
                 for (ItemStack item : killer.getInventory()) {
