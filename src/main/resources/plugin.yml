@@ -25,7 +25,15 @@ commands:
     description: PVPArena Command
     permission: pvparena.pvparena
     usage: |-
-      /pvparena
+      /pvparena start
+      /pvparena stop
+      /pvparena save
+      /pvparena load
+      /pvparena rule <rule> - Enable special rule
+      /pvparena nextworld <worldname> - Load any world next
+      /pvparena skip - Force skip current world next round
+      /pvparena areas - Dump current areas file
+      /pvparena event - Toggle event mode
 
 permissions:
 
