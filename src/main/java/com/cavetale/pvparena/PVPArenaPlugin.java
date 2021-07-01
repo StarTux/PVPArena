@@ -1209,7 +1209,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         wc.environment(World.Environment.valueOf(config.getString("world.Environment", "NORMAL")));
         wc.generateStructures(config.getBoolean("world.GenerateStructures"));
         wc.generator(config.getString("world.Generator"));
-        wc.type(WorldType.valueOf(config.getString("world.WorldType")));
+        wc.type(WorldType.valueOf(config.getString("world.WorldType", "NORMAL")));
         getServer().createWorld(wc);
         World result = getServer().getWorld("pvparena_" + worldName);
         result.setAutoSave(false);
