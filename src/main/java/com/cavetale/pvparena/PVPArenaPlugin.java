@@ -134,8 +134,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             exit(player);
         }
         cleanUpGame();
-        bossBar.removeAll();
-        bossBar = null;
+        if (bossBar != null) {
+            bossBar.removeAll();
+            bossBar = null;
+        }
     }
 
     void enter(Player player) {
@@ -1204,7 +1206,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         File configFile = new File(folder, "config.yml");
         YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
         WorldCreator wc = new WorldCreator("pvparena_" + worldName);
-        wc.environment(World.Environment.valueOf(config.getString("world.Environment")));
+        wc.environment(World.Environment.valueOf(config.getString("world.Environment", "NORMAL")));
         wc.generateStructures(config.getBoolean("world.GenerateStructures"));
         wc.generator(config.getString("world.Generator"));
         wc.type(WorldType.valueOf(config.getString("world.WorldType")));
