@@ -70,7 +70,6 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
@@ -1273,8 +1272,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 event.setCancelled(true);
                 return;
             }
-            if (event.getDamager() instanceof AbstractArrow && tag.specialRule == SpecialRule.ARROWS_INSTA_KILL) {
-                event.setDamage(2048.0);
+            if (event.getDamager() instanceof AbstractArrow && tag.specialRule == SpecialRule.ARROWS_DOUBLE_DAMAGE) {
+                event.setDamage(event.getFinalDamage() * 2.0);
             }
             if (event.getDamager() instanceof Wolf && tag.specialRule == SpecialRule.DOGS_INSTA_KILL) {
                 event.setDamage(2048.0);
@@ -1332,15 +1331,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (tag.state != ArenaState.PLAY) return;
         if (!event.getPlayer().getWorld().equals(world)) return;
         event.setCancelled(true);
-    }
-
-    @EventHandler
-    public void onProjectileHit(ProjectileHitEvent event) {
-        if (event.getEntity() instanceof AbstractArrow && event.getEntity().getWorld().equals(world)) {
-            if (tag.state == ArenaState.PLAY && tag.specialRule == SpecialRule.EXPLOSIVE_ARROWS) {
-                event.getEntity().getWorld().createExplosion(event.getEntity(), event.getEntity().getLocation(), 2.0f, false, false);
-            }
-        }
     }
 
     @EventHandler
