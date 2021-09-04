@@ -7,13 +7,14 @@ import com.cavetale.pvparena.struct.Vec3i;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
 import com.destroystokyo.paper.MaterialTags;
-import com.destroystokyo.paper.Title;
+import com.winthier.title.TitlePlugin;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,6 +26,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Difficulty;
@@ -106,6 +113,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     List<Entity> removeEntities = new ArrayList<>();
     BossBar bossBar;
     private Set<UUID> spectators = new HashSet<>();
+    static final String HEART = "\u2764";
 
     @Override
     public void onEnable() {
@@ -251,25 +259,41 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void tickPlay() {
-        List<Gladiator> alive = new ArrayList<>();
-        for (Gladiator it : new ArrayList<>(tag.gladiators.values())) {
+        List<Gladiator> aliveGladiators = new ArrayList<>();
+        List<Squad> aliveSquads = new ArrayList<>();
+        if (tag.useSquads) {
+            for (Squad it : tag.squads) {
+                it.alive = 0;
+            }
+        }
+        List<Gladiator> gladiators = new ArrayList<>(tag.gladiators.values());
+        Collections.shuffle(gladiators);
+        for (Gladiator it : gladiators) {
             Player player = it.getPlayer();
             if (player == null) {
                 tag.gladiators.remove(it.uuid);
                 continue;
             }
             tickPlayer(it, player);
-            if (!it.gameOver) alive.add(it);
+            if (!it.gameOver) {
+                aliveGladiators.add(it);
+                if (tag.useSquads) {
+                    Squad squad = tag.squads.get(it.squad);
+                    squad.alive += 1;
+                    if (squad.alive == 1) aliveSquads.add(squad);
+                }
+            }
         }
+        int aliveCount = tag.useSquads ? aliveSquads.size() : aliveGladiators.size();
         if (tag.warmUp) {
             int seconds = (WARM_UP_TICKS - tag.gameTime) / 20;
             bossBar.setTitle(ChatColor.RED + "PvP begins in " + seconds + "s");
             bossBar.setProgress(clampProgress((double) tag.gameTime / (double) WARM_UP_TICKS));
         } else if (tag.suddenDeath) {
-            bossBar.setTitle(ChatColor.DARK_RED + "Sudden Death " + alive.size() + "/" + tag.totalPlayers);
+            bossBar.setTitle(ChatColor.DARK_RED + "Sudden Death " + aliveGladiators.size() + "/" + tag.totalPlayers);
             bossBar.setProgress(1.0);
         } else {
-            bossBar.setTitle(ChatColor.RED + "Fight " + alive.size() + "/" + tag.totalPlayers);
+            bossBar.setTitle(ChatColor.RED + "Fight " + aliveGladiators.size() + "/" + tag.totalPlayers);
             final double progress;
             switch (tag.winRule) {
             case TIMED_SCORE:
@@ -285,7 +309,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             bossBar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
         }
-        if (alive.isEmpty()) {
+        if (aliveCount == 0) {
             getLogger().info("The game is a draw!");
             for (Player target : world.getPlayers()) {
                 target.sendTitle(ChatColor.RED + "Draw",
@@ -296,8 +320,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             return;
         }
         if (tag.winRule == WinRule.LAST_SURVIVOR) {
-            if (alive.size() == 1) {
-                playerWinsTheGame(alive.get(0));
+            if (aliveCount == 1) {
+                if (tag.useSquads) {
+                    squadWinsTheGame(aliveSquads.get(0));
+                } else {
+                    playerWinsTheGame(aliveGladiators.get(0));
+                }
                 return;
             }
             if (tag.gameTime == SUDDEN_DEATH_TICKS) {
@@ -312,23 +340,38 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         boolean timesUp = (tag.winRule == WinRule.TIMED_SCORE && tag.gameTime > TIMED_SCORE_TICKS)
             || (tag.winRule == WinRule.MOLE && tag.gameTime > MOLE_TICKS);
         if (timesUp) {
-            Collections.sort(alive, (b, a) -> Integer.compare(a.score, b.score));
-            int maxScore = alive.get(0).score;
-            List<Gladiator> winners = new ArrayList<>();
-            for (Gladiator gladiator : alive) {
-                if (gladiator.score < maxScore) break;
-                winners.add(gladiator);
-            }
-            if (winners.size() == 1) {
-                playerWinsTheGame(winners.get(0));
+            if (tag.useSquads) {
+                Collections.sort(aliveSquads, (b, a) -> Integer.compare(a.score, b.score));
+                int maxScore = aliveSquads.get(0).score;
+                List<Squad> winners = new ArrayList<>();
+                for (Squad squad : aliveSquads) {
+                    if (squad.score < maxScore) break;
+                    winners.add(squad);
+                }
+                if (winners.size() == 1) {
+                    squadWinsTheGame(winners.get(0));
+                } else {
+                    squadsDraw(winners);
+                }
             } else {
-                playersDraw(winners);
+                Collections.sort(aliveGladiators, (b, a) -> Integer.compare(a.score, b.score));
+                int maxScore = aliveGladiators.get(0).score;
+                List<Gladiator> winners = new ArrayList<>();
+                for (Gladiator gladiator : aliveGladiators) {
+                    if (gladiator.score < maxScore) break;
+                    winners.add(gladiator);
+                }
+                if (winners.size() == 1) {
+                    playerWinsTheGame(winners.get(0));
+                } else {
+                    playersDraw(winners);
+                }
             }
             return;
         }
         if (tag.winRule == WinRule.MOLE) {
             if (tag.moleUuid == null || tag.gladiators.get(tag.moleUuid) == null) {
-                tag.moleUuid = alive.get(random.nextInt(alive.size())).uuid;
+                tag.moleUuid = aliveGladiators.get(random.nextInt(aliveGladiators.size())).uuid;
             } else {
                 Player mole = Bukkit.getPlayer(tag.moleUuid);
                 if (mole != null) {
@@ -425,7 +468,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.sendMessage(ChatColor.GREEN + winner.getName() + " wins this round!");
             target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
         }
-        if (tag.event) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winner.getName() + " Champion");
+        if (tag.event) {
+            rewardEventWinner(winner);
+        }
         endGame();
     }
 
@@ -443,10 +488,76 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         if (tag.event) {
             for (Gladiator drawer : drawers) {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + drawer.getName() + " Champion");
+                rewardEventWinner(drawer);
             }
         }
         endGame();
+    }
+
+    protected void squadWinsTheGame(Squad winner) {
+        List<Gladiator> gladiators = new ArrayList<>();
+        for (Gladiator gladiator : tag.gladiators.values()) {
+            if (gladiator.squad != winner.index) continue;
+            gladiators.add(gladiator);
+        }
+        getLogger().info("Team " + winner.name + " wins the game: " + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
+        Title title = Title.title(Component.text(winner.name, winner.getTextColor()),
+                                  Component.text("Wins this round!", winner.getTextColor()));
+        Component message = TextComponent.ofChildren(Component.text(winner.name + " wins this round: ", winner.getTextColor()),
+                                                     Component.join(Component.text(", ", NamedTextColor.GRAY),
+                                                                    gladiators.stream()
+                                                                    .map(g -> Component.text(g.name, NamedTextColor.WHITE))
+                                                                    .collect(Collectors.toList())));
+        for (Player target : world.getPlayers()) {
+            target.sendMessage("");
+            target.showTitle(title);
+            target.sendMessage(message);
+            target.sendMessage("");
+            target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
+        }
+        if (tag.event) {
+            for (Gladiator gladiator : gladiators) {
+                rewardEventWinner(gladiator);
+            }
+        }
+        endGame();
+    }
+
+    protected void squadsDraw(List<Squad> winners) {
+        List<Gladiator> gladiators = new ArrayList<>();
+        for (Squad winner : winners) {
+            for (Gladiator gladiator : tag.gladiators.values()) {
+                if (gladiator.squad != winner.index) continue;
+                gladiators.add(gladiator);
+            }
+        }
+        getLogger().info("Teams "
+                         + winners.stream().map(s -> s.name).collect(Collectors.joining(" "))
+                         + " win the game: "
+                         + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
+        Title title = Title.title(Component.text("Draw!", NamedTextColor.GRAY),
+                                  Component.empty());
+        Component message = TextComponent.ofChildren(Component.join(Component.text(", ", NamedTextColor.GRAY),
+                                                                    winners.stream()
+                                                                    .map(sq -> Component.text(sq.name, sq.getTextColor()))
+                                                                    .collect(Collectors.toList())),
+                                                     Component.text(" draw this round: ", NamedTextColor.GRAY),
+                                                     Component.join(Component.text(", ", NamedTextColor.GRAY),
+                                                                    gladiators.stream()
+                                                                    .map(g -> Component.text(g.name, NamedTextColor.WHITE))
+                                                                    .collect(Collectors.toList())));
+        for (Player target : world.getPlayers()) {
+            target.sendMessage("");
+            target.showTitle(title);
+            target.sendMessage(message);
+            target.sendMessage("");
+            target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
+        }
+        endGame();
+    }
+
+    protected void rewardEventWinner(Gladiator gladiator) {
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + gladiator.name + " Champion");
     }
 
     void tickPlayer(Gladiator gladiator, Player player) {
@@ -460,9 +571,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 int seconds = (int) ((gladiator.respawnCooldown - now) / 1000L);
                 if (gladiator.respawnCooldownDisplay > seconds) {
                     gladiator.respawnCooldownDisplay = seconds;
-                    player.sendTitle(new Title("" + ChatColor.DARK_RED + ChatColor.BOLD + (seconds + 1),
-                                               "" + ChatColor.DARK_RED + "Get Ready!",
-                                               0, 10, 10));
+                    player.showTitle(Title.title(Component.text("" + ChatColor.DARK_RED + ChatColor.BOLD + (seconds + 1)),
+                                                 Component.text("" + ChatColor.DARK_RED + "Get Ready!"),
+                                                 Title.Times.of(Duration.ofMillis(0),
+                                                                Duration.ofMillis(500),
+                                                                Duration.ofMillis(500))));
                 }
             }
         } else {
@@ -506,8 +619,17 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     void startGame() {
         ensureWorldIsLoaded();
-        List<WinRule> wins = new ArrayList<>(Arrays.asList(WinRule.values()));
-        tag.winRule = wins.get(random.nextInt(wins.size()));
+        List<WinRule> wins = Arrays.asList(WinRule.values());
+        int total = 0;
+        for (WinRule win : wins) total += win.weight;
+        int roll = random.nextInt(total);
+        for (WinRule win : wins) {
+            roll -= win.weight;
+            if (roll < 0) {
+                tag.winRule = win;
+                break;
+            }
+        }
         List<SpecialRule> rules = new ArrayList<>(Arrays.asList(SpecialRule.values()));
         rules.remove(SpecialRule.NONE);
         tag.specialRule = rules.get(random.nextInt(rules.size()));
@@ -527,20 +649,83 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         tag.gladiators.clear();
         tag.limitedLives = tag.winRule == WinRule.LAST_SURVIVOR;
         List<Player> eligible = getEligible();
+        Collections.shuffle(eligible);
         tag.moleUuid = tag.winRule == WinRule.MOLE ? eligible.get(random.nextInt(eligible.size())).getUniqueId() : null;
+        tag.useSquads = eligible.size() > 5;
+        if (tag.useSquads) {
+            List<Integer> spawnIndexes = new ArrayList<>();
+            for (int i = 0; i < areasFile.getAreas().getSpawn().size(); i += 1) spawnIndexes.add(i);
+            if (spawnIndexes.isEmpty()) spawnIndexes = Arrays.asList(0);
+            Collections.shuffle(spawnIndexes);
+            List<NamedTextColor> squadColors = Arrays.asList(new NamedTextColor[] {
+                    // NamedTextColor.BLACK,
+                    // NamedTextColor.DARK_BLUE,
+                    // NamedTextColor.DARK_GREEN,
+                    // NamedTextColor.DARK_AQUA,
+                    // NamedTextColor.DARK_RED,
+                    // NamedTextColor.DARK_PURPLE,
+                    NamedTextColor.GOLD,
+                    NamedTextColor.GRAY,
+                    // NamedTextColor.DARK_GRAY,
+                    NamedTextColor.BLUE,
+                    NamedTextColor.GREEN,
+                    NamedTextColor.AQUA,
+                    NamedTextColor.RED,
+                    NamedTextColor.LIGHT_PURPLE,
+                    NamedTextColor.YELLOW,
+                    // NamedTextColor.WHITE,
+                });
+            Collections.shuffle(squadColors);
+            int squadCount;
+            if (eligible.size() <= 10) {
+                squadCount = 2;
+            } else if (eligible.size() <= 18) {
+                squadCount = 3;
+            } else {
+                squadCount = eligible.size() / 6;
+            }
+            squadCount = Math.min(squadCount, squadColors.size());
+            tag.squads = new ArrayList<>();
+            for (int i = 0; i < squadCount; i += 1) {
+                Squad squad = new Squad();
+                NamedTextColor color = squadColors.get(i);
+                squad.setTextColor(color);
+                String name = NamedTextColor.NAMES.key(color);
+                if (name.startsWith("light_")) name = name.substring(6);
+                name = name.substring(0, 1).toUpperCase() + name.substring(1);
+                squad.name = name;
+                squad.index = i;
+                squad.spawn = spawnIndexes.get(i % spawnIndexes.size());
+                tag.squads.add(squad);
+            }
+        } else {
+            tag.squads = null;
+        }
         for (Player target : eligible) {
             resetPlayer(target);
             giveGear(target);
-            target.teleport(findSpawnLocation(), TeleportCause.PLUGIN);
             Bukkit.getScheduler().runTaskLater(this, () -> target.setInvisible(true), 1L);
             Bukkit.getScheduler().runTaskLater(this, () -> target.setInvisible(false), 2L);
             Gladiator gladiator = new Gladiator(target);
             gladiator.lives = tag.limitedLives ? 3 : 0;
             tag.gladiators.put(target.getUniqueId(), gladiator);
+            if (tag.useSquads) {
+                Squad theSquad = tag.squads.get(0);
+                for (Squad it : tag.squads) {
+                    if (it.memberCount < theSquad.memberCount) {
+                        theSquad = it;
+                    }
+                }
+                gladiator.squad = theSquad.index;
+                theSquad.memberCount += 1;
+                TitlePlugin.getInstance().setColor(target, theSquad.getTextColor());
+                getLogger().info(target.getName() + " in team " + gladiator.squad);
+            }
             if (tag.event) {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + target.getName());
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + target.getName() + " Gladiator");
             }
+            target.teleport(findSpawnLocation(target), TeleportCause.PLUGIN);
         }
         for (Player target : Bukkit.getOnlinePlayers()) {
             target.sendMessage("");
@@ -588,6 +773,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     void cleanUpGame() {
         for (Entity e : removeEntities) e.remove();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            TitlePlugin.getInstance().setColor(p, null);
+        }
         removeEntities.clear();
     }
 
@@ -615,16 +803,16 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (gladiator.lives <= 1) {
                 gladiator.lives = 0;
                 gladiator.gameOver = true;
-                player.sendTitle(new Title("" + ChatColor.DARK_RED + "Game Over",
-                                           "" + ChatColor.DARK_RED + "Wait for the next round"));
+                player.sendTitle("" + ChatColor.DARK_RED + "Game Over",
+                                 "" + ChatColor.DARK_RED + "Wait for the next round");
             } else {
                 gladiator.lives -= 1;
                 if (gladiator.lives == 1) {
-                    player.sendTitle(new Title("" + ChatColor.BLUE + "One Life",
-                                               "" + ChatColor.BLUE + "Last Chance"));
+                    player.sendTitle("" + ChatColor.BLUE + "One Life",
+                                     "" + ChatColor.BLUE + "Last Chance");
                 } else {
-                    player.sendTitle(new Title("" + ChatColor.BLUE + gladiator.lives + " Lives",
-                                               "" + ChatColor.BLUE + "Respawn soon!"));
+                    player.sendTitle("" + ChatColor.BLUE + gladiator.lives + " Lives",
+                                     "" + ChatColor.BLUE + "Respawn soon!");
                 }
             }
         }
@@ -694,6 +882,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 if (Objects.equals(tag.moleUuid, gladiator.uuid)) {
                     // Mole got killed
                     gladiator2.score += 1;
+                    if (tag.useSquads) {
+                        tag.squads.get(gladiator2.squad).score += 1;
+                    }
                     if (!killer.equals(player)) {
                         tag.moleUuid = gladiator2.uuid;
                         killer.setHealth(killer.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
@@ -706,9 +897,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 } else if (Objects.equals(tag.moleUuid, gladiator2.uuid)) {
                     // Killer is mole: mole killed someone
                     gladiator2.score += 1;
+                    if (tag.useSquads) {
+                        tag.squads.get(gladiator2.squad).score += 1;
+                    }
                 }
             } else {
                 gladiator2.score += 1;
+                if (tag.useSquads) {
+                    tag.squads.get(gladiator2.squad).score += 1;
+                }
             }
             getLogger().info(killer.getName() + " killed " + player.getName());
         } else {
@@ -790,8 +987,23 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return location;
     }
 
+    Location findSpawnLocation(Player player) {
+        if (!tag.useSquads) return findSpawnLocation();
+        Gladiator gladiator = getGladiator(player);
+        if (gladiator == null) return findSpawnLocation();
+        if (areasFile.getAreas().getSpawn().isEmpty()) return findSpawnLocation();
+        Squad squad = tag.squads.get(gladiator.squad);
+        Cuboid cuboid = areasFile.getAreas().getSpawn().get(squad.spawn);
+        List<Vec3i> vecs = cuboid.enumerate();
+        Vec3i vector = vecs.get(random.nextInt(vecs.size()));
+        Location location = world.getBlockAt(vector.x, vector.y, vector.z).getLocation();
+        location = location.add(0.5, 0.1, 0.5);
+        location.setYaw((float) (random.nextDouble() * 360.0));
+        return location;
+    }
+
     void respawn(Player player) {
-        Location spawnLocation = findSpawnLocation();
+        Location spawnLocation = findSpawnLocation(player);
         preparePlayer(player);
         player.setGameMode(GameMode.ADVENTURE);
         player.teleport(spawnLocation, TeleportCause.PLUGIN);
@@ -823,51 +1035,78 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerSidebar(PlayerSidebarEvent event) {
-        List<String> ls = new ArrayList<>();
+        List<Component> ls = new ArrayList<>();
         Player player = event.getPlayer();
+        Gladiator playerGladiator = getGladiator(player);
+        Squad playerSquad = playerGladiator != null && tag.useSquads
+            ? tag.squads.get(playerGladiator.squad) : null;
         if (spectators.contains(player.getUniqueId())) {
-            ls.add("" + ChatColor.YELLOW + ChatColor.BOLD + "Specating "
-                   + ChatColor.YELLOW + "(/spec)");
+            ls.add(Component.text("Specating (/spec)", NamedTextColor.YELLOW));
         }
         if (tag.state == ArenaState.PLAY) {
-            ls.add(ChatColor.GRAY + "Win " + ChatColor.RED + tag.winRule.displayName);
-            ls.add(ChatColor.GRAY + "Special " + ChatColor.RED + tag.specialRule.displayName);
+            ls.add(Component.text(ChatColor.GRAY + "Win " + ChatColor.RED + tag.winRule.displayName));
+            ls.add(Component.text(ChatColor.GRAY + "Special " + ChatColor.RED + tag.specialRule.displayName));
+            if (tag.limitedLives && playerGladiator != null) {
+                ls.add(TextComponent.ofChildren(Component.text("Lives ", NamedTextColor.GRAY),
+                                                Component.text("" + playerGladiator.lives, NamedTextColor.RED)));
+            }
+            if (playerSquad != null) {
+                ls.add(TextComponent.ofChildren(Component.text("Team ", NamedTextColor.GRAY),
+                                                Component.text(playerSquad.name, playerSquad.getTextColor())));
+            }
             if (tag.suddenDeath) {
-                ls.add("" + ChatColor.DARK_RED + ChatColor.BOLD + "Sudden Death");
+                ls.add(Component.text("Sudden Death", NamedTextColor.DARK_RED, TextDecoration.BOLD));
             }
         }
-        List<Gladiator> gladiators = new ArrayList<>(tag.gladiators.values());
-        Collections.sort(gladiators, (b, a) -> {
-                int c = Integer.compare(!a.gameOver ? 1 : 0,
-                                        !b.gameOver ? 1 : 0);
-                if (c != 0) return c;
-                return tag.winRule == WinRule.LAST_SURVIVOR
-                    ? Integer.compare(a.lives, b.lives)
-                    : Integer.compare(a.score, b.score);
-            });
-        for (Gladiator gladiator : gladiators) {
-            if (gladiator.gameOver) {
-                ls.add("" + ChatColor.GREEN + gladiator.score + " " + ChatColor.DARK_GRAY + gladiator.name);
-            } else {
-                int hearts = (int) Math.ceil(gladiator.health * 0.5);
-                ChatColor nameColor;
-                if (gladiator.is(player)) {
-                    nameColor = ChatColor.GREEN;
+        if (tag.useSquads) {
+            List<Squad> squads = new ArrayList<>(tag.squads);
+            Collections.sort(squads, (b, a) -> Integer.compare(a.score, b.score));
+            for (Squad squad : tag.squads) {
+                ls.add(TextComponent.ofChildren(Component.text("" + squad.score, NamedTextColor.WHITE),
+                                                Component.space(),
+                                                Component.text(HEART + squad.alive, NamedTextColor.RED),
+                                                Component.space(),
+                                                Component.text(squad.name, squad.getTextColor())));
+            }
+        } else {
+            List<Gladiator> gladiators = new ArrayList<>(tag.gladiators.values());
+            Collections.sort(gladiators, (b, a) -> {
+                    int c = Integer.compare(!a.gameOver ? 1 : 0,
+                                            !b.gameOver ? 1 : 0);
+                    if (c != 0) return c;
+                    return tag.winRule == WinRule.LAST_SURVIVOR
+                        ? Integer.compare(a.lives, b.lives)
+                        : Integer.compare(a.score, b.score);
+                });
+            for (Gladiator gladiator : gladiators) {
+                if (gladiator.gameOver) {
+                    ls.add(TextComponent.ofChildren(Component.text("" + gladiator.score, NamedTextColor.GREEN),
+                                                    Component.space(),
+                                                    Component.text(gladiator.name, NamedTextColor.DARK_GRAY)));
                 } else {
-                    nameColor = ChatColor.WHITE;
-                }
-                if (tag.limitedLives) {
-                    String lvs = gladiator.lives > 0 ? (ChatColor.BLUE + "|" + gladiator.lives) : "";
-                    ls.add("" + ChatColor.RED + "\u2764" + hearts + lvs + " " + nameColor + gladiator.name);
-                } else {
-                    ls.add("" + ChatColor.WHITE + gladiator.score
-                           + " " + ChatColor.RED + "\u2764" + hearts
-                           + " " + nameColor + gladiator.name);
+                    int hearts = (int) Math.ceil(gladiator.health * 0.5);
+                    TextColor nameColor;
+                    if (gladiator.is(player)) {
+                        nameColor = NamedTextColor.GREEN;
+                    } else {
+                        nameColor = NamedTextColor.WHITE;
+                    }
+                    if (tag.limitedLives) {
+                        String lvs = gladiator.lives > 0 ? (ChatColor.BLUE + "|" + gladiator.lives) : "";
+                        ls.add(TextComponent.ofChildren(Component.text(HEART + hearts + lvs + " ", NamedTextColor.RED),
+                                                        Component.text(gladiator.name, nameColor)));
+                    } else {
+                        ls.add(TextComponent.ofChildren(Component.text("" + gladiator.score, NamedTextColor.WHITE),
+                                                        Component.space(),
+                                                        Component.text(HEART + hearts, NamedTextColor.RED),
+                                                        Component.space(),
+                                                        Component.text(gladiator.name, nameColor)));
+                    }
                 }
             }
         }
         if (ls.isEmpty()) return;
-        event.addLines(this, Priority.DEFAULT, ls);
+        event.add(this, Priority.DEFAULT, ls);
     }
 
     boolean isAlive(Player p) {
@@ -924,7 +1163,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     void giveGear(Player player) {
         ItemStack weapon = spawnWeapon();
         giveItem(player, weapon);
-        giveItem(player, spawnArmor());
+        giveItem(player, spawnChestplate());
         giveBuffItem(player);
         giveDebuffItem(player);
         if (weapon.getType() == Material.BOW || weapon.getType() == Material.CROSSBOW) {
@@ -1032,19 +1271,25 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     ItemStack spawnArmor() {
-        switch (random.nextInt(12)) {
+        switch (random.nextInt(9)) {
         case 0: return enchant(new ItemStack(Material.IRON_CHESTPLATE));
         case 1: return enchant(new ItemStack(Material.DIAMOND_CHESTPLATE));
         case 2: return enchant(new ItemStack(Material.NETHERITE_CHESTPLATE));
         case 3: return enchant(new ItemStack(Material.IRON_LEGGINGS));
         case 4: return enchant(new ItemStack(Material.DIAMOND_LEGGINGS));
         case 5: return enchant(new ItemStack(Material.NETHERITE_LEGGINGS));
-        case 6: return enchant(new ItemStack(Material.IRON_HELMET));
-        case 7: return enchant(new ItemStack(Material.DIAMOND_HELMET));
-        case 8: return enchant(new ItemStack(Material.NETHERITE_HELMET));
-        case 9: return enchant(new ItemStack(Material.IRON_BOOTS));
-        case 10: return enchant(new ItemStack(Material.DIAMOND_BOOTS));
-        case 11: return enchant(new ItemStack(Material.NETHERITE_BOOTS));
+        case 6: return enchant(new ItemStack(Material.IRON_BOOTS));
+        case 7: return enchant(new ItemStack(Material.DIAMOND_BOOTS));
+        case 8: return enchant(new ItemStack(Material.NETHERITE_BOOTS));
+        default: throw new IllegalStateException();
+        }
+    }
+
+    ItemStack spawnChestplate() {
+        switch (random.nextInt(3)) {
+        case 0: return enchant(new ItemStack(Material.IRON_CHESTPLATE));
+        case 1: return enchant(new ItemStack(Material.DIAMOND_CHESTPLATE));
+        case 2: return enchant(new ItemStack(Material.NETHERITE_CHESTPLATE));
         default: throw new IllegalStateException();
         }
     }
@@ -1268,7 +1513,23 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (event.getEntity() instanceof Player) {
             Player damaged = (Player) event.getEntity();
             Gladiator gladiator = getGladiator(damaged);
-            if (gladiator != null && gladiator.invulnerable > System.currentTimeMillis()) {
+            if (gladiator == null) {
+                event.setCancelled(true);
+                return;
+            }
+            if (event.getDamager() instanceof Player) {
+                Player damager = (Player) event.getDamager();
+                Gladiator gladiator2 = getGladiator(damager);
+                if (gladiator2 == null) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (tag.useSquads && gladiator.squad == gladiator2.squad) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+            if (gladiator.invulnerable > System.currentTimeMillis()) {
                 event.setCancelled(true);
                 return;
             }

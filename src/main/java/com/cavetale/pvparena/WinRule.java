@@ -1,15 +1,15 @@
 package com.cavetale.pvparena;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 public enum WinRule {
-    LAST_SURVIVOR("Last Survivor"),
-    TIMED_SCORE("Most Kills"),
-    MOLE("Kill the Mole");
+    LAST_SURVIVOR(5, "Last Survivor"),
+    TIMED_SCORE(10, "Most Kills"),
+    MOLE(1, "Kill the Mole");
 
+    public final int weight;
     public final String displayName;
-
-    WinRule(final String dn) {
-        this.displayName = dn;
-    }
 
     public String getDescription() {
         switch (this) {

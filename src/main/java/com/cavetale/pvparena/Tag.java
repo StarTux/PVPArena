@@ -8,22 +8,24 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class Tag implements Serializable {
-    ArenaState state = ArenaState.IDLE;
-    int gameTime = 0;
-    boolean suddenDeath = false;
-    boolean warmUp = false;
-    int endTime = 0;
-    int idleTime = 0;
-    List<String> worlds = new ArrayList<>();
-    String worldName = null;
-    int worldUsed = 0;
-    int totalPlayers = 0;
-    WinRule winRule = WinRule.LAST_SURVIVOR;
-    SpecialRule specialRule = SpecialRule.NONE;
-    Map<UUID, Gladiator> gladiators = new HashMap<>();
-    boolean limitedLives = false;
-    boolean event = false;
-    long shuffleCooldown; // epoch
-    UUID moleUuid;
+    protected ArenaState state = ArenaState.IDLE;
+    protected int gameTime = 0;
+    protected boolean suddenDeath = false;
+    protected boolean warmUp = false;
+    protected int endTime = 0;
+    protected int idleTime = 0;
+    protected List<String> worlds = new ArrayList<>();
+    protected String worldName = null;
+    protected int worldUsed = 0;
+    protected int totalPlayers = 0;
+    protected WinRule winRule = WinRule.LAST_SURVIVOR;
+    protected SpecialRule specialRule = SpecialRule.NONE;
+    protected Map<UUID, Gladiator> gladiators = new HashMap<>();
+    protected boolean limitedLives = false;
+    protected boolean event = false;
+    protected long shuffleCooldown; // epoch
+    protected UUID moleUuid;
+    protected boolean useSquads;
+    protected List<Squad> squads;
 }
 

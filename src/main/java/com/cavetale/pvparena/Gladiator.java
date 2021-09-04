@@ -24,6 +24,7 @@ public final class Gladiator implements Serializable {
     protected long respawnCooldown; // epoch
     protected int respawnCooldownDisplay;
     protected long invulnerable; // epoch
+    protected int squad;
 
     public Gladiator(final Player player) {
         this.uuid = player.getUniqueId();
