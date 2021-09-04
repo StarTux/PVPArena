@@ -149,6 +149,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     void enter(Player player) {
         bossBar.addPlayer(player);
+        if (tag.state == ArenaState.PLAY && tag.useSquads) {
+            Gladiator gladiator = getGladiator(player);
+            if (gladiator != null) {
+                TitlePlugin.getInstance().setColor(player, tag.squads.get(gladiator.squad).getTextColor());
+            }
+        }
     }
 
     void exit(Player player) {
@@ -208,11 +214,37 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             saveTag();
             sender.sendMessage("Event Mode: " + tag.event);
             return true;
+        case "reward":
+            if (args.length == 2) {
+                Player target = Bukkit.getPlayerExact(args[1]);
+                if (target == null) {
+                    sender.sendMessage("Player not found: " + args[1]);
+                    return true;
+                }
+                sender.sendMessage("Rewarding " + target.getName() + "...");
+                rewardEventWinner(new Gladiator(target));
+            } else {
+                return false;
+            }
+            return true;
         default:
             return false;
         }
     }
 
+    @Override
+    public List<String> onTabComplete(final CommandSender sender, final Command command, final String alias, final String[] args) {
+        if (args.length == 0) return null;
+        if (args.length == 1) {
+            return Arrays.asList("start", "stop", "save", "load", "rule", "nextworld", "skip", "areas", "event", "reward")
+                .stream()
+                .filter(s -> s.contains(args[args.length - 1]))
+                .collect(Collectors.toList());
+        }
+        return getConfig().getStringList("worlds").stream()
+            .filter(s -> s.contains(args[args.length - 1]))
+            .collect(Collectors.toList());
+    }
     void tick() {
         if (getEligible().isEmpty()) {
             setIdle();
@@ -557,7 +589,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     protected void rewardEventWinner(Gladiator gladiator) {
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + gladiator.name + " Champion");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + gladiator.name + " Champion Slayer IronSword GoldenSword DiamondSword NetheriteSword");
     }
 
     void tickPlayer(Gladiator gladiator, Player player) {
@@ -794,8 +826,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     c.setPersistent(false);
                     c.setRemoveWhenFarAway(true);
                     c.setPowered(true);
-                    c.setMaxHealth(100.0);
-                    c.setHealth(100.0);
+                    c.setMaxHealth(10.0);
+                    c.setHealth(10.0);
                 });
             removeEntities.add(creeper);
         }
@@ -1060,13 +1092,22 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         if (tag.useSquads) {
             List<Squad> squads = new ArrayList<>(tag.squads);
-            Collections.sort(squads, (b, a) -> Integer.compare(a.score, b.score));
-            for (Squad squad : tag.squads) {
-                ls.add(TextComponent.ofChildren(Component.text("" + squad.score, NamedTextColor.WHITE),
-                                                Component.space(),
-                                                Component.text(HEART + squad.alive, NamedTextColor.RED),
-                                                Component.space(),
-                                                Component.text(squad.name, squad.getTextColor())));
+            if (tag.limitedLives) {
+                Collections.sort(squads, (b, a) -> Integer.compare(a.alive, b.alive));
+                for (Squad squad : squads) {
+                    ls.add(TextComponent.ofChildren(Component.text(HEART + squad.alive, NamedTextColor.RED),
+                                                    Component.space(),
+                                                    Component.text(squad.name, squad.getTextColor())));
+                }
+            } else {
+                Collections.sort(squads, (b, a) -> Integer.compare(a.score, b.score));
+                for (Squad squad : squads) {
+                    ls.add(TextComponent.ofChildren(Component.text("" + squad.score, NamedTextColor.WHITE),
+                                                    Component.space(),
+                                                    Component.text(HEART + squad.alive, NamedTextColor.RED),
+                                                    Component.space(),
+                                                    Component.text(squad.name, squad.getTextColor())));
+                }
             }
         } else {
             List<Gladiator> gladiators = new ArrayList<>(tag.gladiators.values());
@@ -1168,6 +1209,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         giveDebuffItem(player);
         if (weapon.getType() == Material.BOW || weapon.getType() == Material.CROSSBOW) {
             giveItem(player, spawnArrows());
+            giveItem(player, new ItemStack(Material.ARROW, 64));
             int dogAmount = random.nextInt(8) - random.nextInt(8);
             if (dogAmount > 0) {
                 for (int i = 0; i < dogAmount; i += 1) {
@@ -1556,6 +1598,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             Player damager = getPlayerDamager(event.getDamager());
             if (damager != null) {
+                Gladiator gladiator2 = getGladiator(damager);
+                if (gladiator2 == null) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (tag.useSquads && gladiator.squad == gladiator2.squad) {
+                    event.setCancelled(true);
+                    return;
+                }
                 if (damager.equals(damaged)) return;
                 for (Entity entity : removeEntities) {
                     if (entity instanceof Tameable) {
@@ -1571,7 +1622,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     } else if (Objects.equals(damaged.getUniqueId(), tag.moleUuid)) {
                         event.setDamage(event.getFinalDamage() * 0.5);
                     } else {
-                        event.setCancelled(true);
+                        event.setDamage(event.getFinalDamage() * 0.25);
                     }
                 }
             }
@@ -1583,6 +1634,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (tag.state != ArenaState.PLAY) return;
         if (!event.getEntity().getWorld().equals(world)) return;
         Projectile projectile = event.getEntity();
+        if (projectile.getShooter() instanceof Player) {
+            Player player = (Player) projectile.getShooter();
+            if (player.getGameMode() == GameMode.SPECTATOR) {
+                projectile.remove();
+                event.setCancelled(true);
+                return;
+            }
+        }
         removeEntities.add(projectile);
         projectile.setPersistent(false);
     }
