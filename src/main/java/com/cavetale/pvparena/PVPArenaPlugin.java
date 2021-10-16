@@ -661,7 +661,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         ensureWorldIsLoaded();
         List<WinRule> wins = new ArrayList<>();
         int total = 0;
-        for (WinRule win : wins) {
+        for (WinRule win : WinRule.values()) {
             for (int i = 0; i < win.weight; i += 1) {
                 wins.add(win);
             }
