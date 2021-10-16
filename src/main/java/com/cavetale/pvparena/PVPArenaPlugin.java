@@ -210,8 +210,16 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             sender.sendMessage("AreasFile: " + Json.serialize(areasFile));
             return true;
         case "event":
-            tag.event = !tag.event;
-            saveTag();
+            if (args.length > 2) return false;
+            if (args.length >= 2) {
+                try {
+                    tag.event = Boolean.parseBoolean(args[1]);
+                } catch (IllegalArgumentException iae) {
+                    sender.sendMessage("Boolean expected: " + args[1]);
+                    return true;
+                }
+                saveTag();
+            }
             sender.sendMessage("Event Mode: " + tag.event);
             return true;
         case "reward":
@@ -651,17 +659,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     void startGame() {
         ensureWorldIsLoaded();
-        List<WinRule> wins = Arrays.asList(WinRule.values());
+        List<WinRule> wins = new ArrayList<>();
         int total = 0;
-        for (WinRule win : wins) total += win.weight;
-        int roll = random.nextInt(total);
         for (WinRule win : wins) {
-            roll -= win.weight;
-            if (roll < 0) {
-                tag.winRule = win;
-                break;
+            for (int i = 0; i < win.weight; i += 1) {
+                wins.add(win);
             }
         }
+        tag.winRule = wins.get(random.nextInt(wins.size()));
         List<SpecialRule> rules = new ArrayList<>(Arrays.asList(SpecialRule.values()));
         rules.remove(SpecialRule.NONE);
         tag.specialRule = rules.get(random.nextInt(rules.size()));

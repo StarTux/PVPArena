@@ -4,9 +4,9 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public enum WinRule {
-    LAST_SURVIVOR(5, "Last Survivor"),
-    TIMED_SCORE(10, "Most Kills"),
-    MOLE(1, "Kill the Mole");
+    LAST_SURVIVOR(1, "Last Survivor"),
+    TIMED_SCORE(4, "Most Kills"),
+    MOLE(0, "Kill the Mole");
 
     public final int weight;
     public final String displayName;
