@@ -101,7 +101,7 @@ import org.bukkit.util.Vector;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 
 public final class PVPArenaPlugin extends JavaPlugin implements Listener {
-    static final int WARM_UP_TICKS = 200;
+    static final int WARM_UP_TICKS = 20 * 30;
     static final int SUDDEN_DEATH_TICKS = 20 * 60 * 3;
     static final int TIMED_SCORE_TICKS = 20 * 60 * 5;
     static final int MOLE_TICKS = 20 * 60 * 5;
@@ -1094,17 +1094,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             ls.add(Component.text("Specating (/spec)", NamedTextColor.YELLOW));
         }
         if (tag.state == ArenaState.PLAY) {
+            if (playerSquad != null) {
+                ls.add(Component.text("Team " + playerSquad.name, playerSquad.getTextColor(), TextDecoration.BOLD));
+            }
             ls.add(Component.text(ChatColor.GRAY + "Win " + ChatColor.RED + tag.winRule.displayName));
             ls.add(Component.text(ChatColor.GRAY + "Special " + ChatColor.RED + tag.specialRule.displayName));
             if (tag.limitedLives && playerGladiator != null) {
                 ls.add(Component.join(JoinConfiguration.noSeparators(),
                                       Component.text("Lives ", NamedTextColor.GRAY),
                                       Component.text("" + playerGladiator.lives, NamedTextColor.RED)));
-            }
-            if (playerSquad != null) {
-                ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                      Component.text("Team ", NamedTextColor.GRAY),
-                                      Component.text(playerSquad.name, playerSquad.getTextColor())));
             }
             if (tag.suddenDeath) {
                 ls.add(Component.text("Sudden Death", NamedTextColor.DARK_RED, TextDecoration.BOLD));
