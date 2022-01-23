@@ -432,6 +432,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
         }
         if (tag.gameTime == WARM_UP_TICKS) {
+            tag.warmUp = false;
+            world.setPVP(true);
             for (Player target : world.getPlayers()) {
                 target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.2f);
                 target.showTitle(Title.title(Component.text("Fight!", NamedTextColor.DARK_RED),
@@ -442,7 +444,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 target.sendMessage(ChatColor.DARK_RED + "Fight! " + tag.specialRule.displayName);
                 target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, SoundCategory.MASTER, 0.1f, 1.2f);
             }
-            tag.warmUp = false;
         }
         if (tag.suddenDeath && tag.gameTime % 40 == 0) {
             for (Player target : world.getPlayers()) {
@@ -645,7 +646,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     void tickEnd() {
         tag.endTime += 1;
-        if (tag.endTime > 200) {
+        if (tag.endTime > (30 * 20)) {
             if (getEligible().size() < 2) {
                 setIdle();
             } else {
@@ -788,6 +789,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.sendMessage("");
         }
         tag.state = ArenaState.PLAY;
+        world.setPVP(false);
         tag.gameTime = 0;
         tag.suddenDeath = false;
         tag.warmUp = true;
