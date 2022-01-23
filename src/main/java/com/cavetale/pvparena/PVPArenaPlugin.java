@@ -730,7 +730,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             } else if (eligible.size() <= 18) {
                 squadCount = 3;
             } else {
-                squadCount = eligible.size() / 6;
+                squadCount = 4;
             }
             squadCount = Math.min(squadCount, squadColors.size());
             tag.squads = new ArrayList<>();
