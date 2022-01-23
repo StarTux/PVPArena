@@ -1,6 +1,7 @@
 package com.cavetale.pvparena;
 
 import com.cavetale.afk.AFKPlugin;
+import com.cavetale.core.event.player.PlayerTeamQuery;
 import com.cavetale.pvparena.struct.AreasFile;
 import com.cavetale.pvparena.struct.Cuboid;
 import com.cavetale.pvparena.struct.Vec3i;
@@ -1764,6 +1765,27 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     void onFoodLevelChange(FoodLevelChangeEvent event) {
         if (event.getFoodLevel() < event.getEntity().getFoodLevel()) {
             event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    void onPlayerTeam(PlayerTeamQuery query) {
+        if (!tag.useSquads || tag.squads == null) return;
+        if (tag.state == ArenaState.IDLE) return;
+        List<PlayerTeamQuery.Team> teams = new ArrayList<>();
+        for (Squad squad : tag.squads) {
+            PlayerTeamQuery.Team team = new PlayerTeamQuery
+                .Team("pvparena:" + squad.name.toLowerCase(),
+                      Component.text(squad.name, squad.getTextColor()));
+            teams.add(team);
+
+        }
+        for (Gladiator gladiator : tag.gladiators.values()) {
+            if (gladiator.squad < 0 || gladiator.squad >= teams.size()) continue;
+            Squad squad = tag.squads.get(gladiator.squad);
+            Player player = gladiator.getPlayer();
+            if (player == null) continue;
+            query.setTeam(player, teams.get(gladiator.squad));
         }
     }
 }
