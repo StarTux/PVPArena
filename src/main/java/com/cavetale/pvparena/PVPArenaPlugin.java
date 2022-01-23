@@ -254,6 +254,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             .filter(s -> s.contains(args[args.length - 1]))
             .collect(Collectors.toList());
     }
+
     void tick() {
         if (getEligible().isEmpty()) {
             setIdle();
@@ -286,6 +287,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void tickIdle() {
+        if (tag.event) {
+            tag.idleTime = 0;
+            bossBar.setTitle(ChatColor.RED + "Preparing for Event...");
+            bossBar.setProgress(0.0f);
+            return;
+        }
         int eligible = getEligible().size();
         bossBar.setTitle(ChatColor.RED + "Waiting for players... " + ChatColor.WHITE + eligible);
         bossBar.setProgress(clampProgress((double) tag.idleTime / (double) IDLE_TICKS));
