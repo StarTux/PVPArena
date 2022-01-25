@@ -886,7 +886,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             default: break;
             }
         }
-        // Fireworks.spawnFirework(player.getLocation()).detonate();
         gladiator.dead = true;
         gladiator.deaths += 1;
         gladiator.respawnCooldown = System.currentTimeMillis() + 5000;
@@ -1187,38 +1186,39 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    ItemStack enchant(ItemStack item) {
+    protected static final List<Enchantment> FORBIDDEN_ENCHANTMENTS = List.of(new Enchantment[] {
+            Enchantment.DURABILITY,
+            Enchantment.DAMAGE_ARTHROPODS,
+            Enchantment.DAMAGE_UNDEAD,
+            Enchantment.DEPTH_STRIDER,
+            Enchantment.DIG_SPEED,
+            Enchantment.FROST_WALKER,
+            Enchantment.LOOT_BONUS_BLOCKS,
+            Enchantment.LOOT_BONUS_MOBS,
+            Enchantment.LUCK,
+            Enchantment.LURE,
+            Enchantment.MENDING,
+            Enchantment.OXYGEN,
+            Enchantment.PROTECTION_FALL,
+            Enchantment.PROTECTION_FIRE,
+            Enchantment.SILK_TOUCH,
+            Enchantment.SOUL_SPEED,
+            Enchantment.WATER_WORKER,
+        });
+
+    protected ItemStack enchant(ItemStack item) {
         if (item.getType() == Material.TRIDENT) {
             item.addUnsafeEnchantment(Enchantment.LOYALTY, Enchantment.LOYALTY.getMaxLevel());
             item.addUnsafeEnchantment(Enchantment.IMPALING, Enchantment.IMPALING.getMaxLevel());
         } else if (item.getType() == Material.CROSSBOW) {
-            item.addUnsafeEnchantment(Enchantment.QUICK_CHARGE, 3);
+            item.addUnsafeEnchantment(Enchantment.QUICK_CHARGE, Enchantment.QUICK_CHARGE.getMaxLevel());
         }
         do {
             List<Enchantment> list = new ArrayList<>();
-            for (Enchantment enchantment : Enchantment.values()) {
-                if (enchantment.equals(Enchantment.DURABILITY)) continue;
-                if (enchantment.equals(Enchantment.DAMAGE_ARTHROPODS)) continue;
-                if (enchantment.equals(Enchantment.DAMAGE_UNDEAD)) continue;
-                if (enchantment.equals(Enchantment.DEPTH_STRIDER)) continue;
-                if (enchantment.equals(Enchantment.DIG_SPEED)) continue;
-                if (enchantment.equals(Enchantment.FROST_WALKER)) continue;
-                if (enchantment.equals(Enchantment.LOOT_BONUS_BLOCKS)) continue;
-                if (enchantment.equals(Enchantment.LOOT_BONUS_MOBS)) continue;
-                if (enchantment.equals(Enchantment.LUCK)) continue;
-                if (enchantment.equals(Enchantment.LURE)) continue;
-                if (enchantment.equals(Enchantment.MENDING)) continue;
-                if (enchantment.equals(Enchantment.OXYGEN)) continue;
-                if (enchantment.equals(Enchantment.PROTECTION_FALL)) continue;
-                if (enchantment.equals(Enchantment.PROTECTION_FIRE)) continue;
-                if (enchantment.equals(Enchantment.SILK_TOUCH)) continue;
-                if (enchantment.equals(Enchantment.SOUL_SPEED)) continue;
-                if (enchantment.equals(Enchantment.WATER_WORKER)) continue;
-                if (!enchantment.canEnchantItem(item)) continue;
-                if (enchantment.isCursed()) continue;
-                list.add(enchantment);
-            }
-            if (list.isEmpty()) return item;
+            list.addAll(List.of(Enchantment.values()));
+            list.removeAll(FORBIDDEN_ENCHANTMENTS);
+            list.removeIf(enchantment -> !enchantment.canEnchantItem(item) || enchantment.isCursed());
+            if (list.isEmpty()) break;
             Collections.shuffle(list);
             Enchantment enchantment = list.get(0);
             item.addUnsafeEnchantment(enchantment, enchantment.getMaxLevel());
@@ -1226,7 +1226,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return item;
     }
 
-    void giveGear(Player player) {
+    protected void giveGear(Player player) {
         ItemStack weapon = spawnWeapon();
         giveItem(player, weapon);
         giveItem(player, spawnChestplate());
@@ -1257,21 +1257,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    boolean setEquipment(Player player, EquipmentSlot slot, ItemStack item) {
+    protected boolean setEquipment(Player player, EquipmentSlot slot, ItemStack item) {
         ItemStack old = player.getEquipment().getItem(slot);
-        if (old != null && old.getAmount() > 0) return false;
+        if (old != null && old.getType() != Material.AIR) return false;
         player.getEquipment().setItem(slot, item);
         return true;
     }
 
-    boolean addInventory(Player player, ItemStack item) {
-        // for (int i = 9; i < 36; i += 1) {
-        //     ItemStack old = player.getInventory().getItem(i);
-        //     if (old != null && old.getAmount() > 0) continue;
-        //     player.getInventory().setItem(i, item);
-        //     return true;
-        // }
-        // return false;
+    protected boolean addInventory(Player player, ItemStack item) {
         player.getInventory().addItem(item);
         return true;
     }
