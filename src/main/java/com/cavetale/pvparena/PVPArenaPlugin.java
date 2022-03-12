@@ -5,6 +5,7 @@ import com.cavetale.core.event.player.PlayerTeamQuery;
 import com.cavetale.pvparena.struct.AreasFile;
 import com.cavetale.pvparena.struct.Cuboid;
 import com.cavetale.pvparena.struct.Vec3i;
+import com.cavetale.server.ServerPlugin;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
 import com.destroystokyo.paper.MaterialTags;
@@ -150,6 +151,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             bossBar.removeAll();
             bossBar = null;
         }
+        ServerPlugin.getInstance().setServerSidebarLines(null);
     }
 
     void enter(Player player) {
@@ -261,6 +263,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     void tick() {
         if (getEligible().isEmpty()) {
+            ServerPlugin.getInstance().setServerSidebarLines(null);
             setIdle();
             return;
         }
@@ -290,16 +293,34 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return Math.max(0.0, Math.min(1.0, in));
     }
 
+    private String players(int count) {
+        return count == 1
+            ? "1 player"
+            : count + " players";
+    }
+
     void tickIdle() {
         if (tag.event) {
             tag.idleTime = 0;
             bossBar.setTitle(ChatColor.RED + "Preparing for Event...");
             bossBar.setProgress(0.0f);
+            ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
+                        text("/pvparena", YELLOW),
+                        text("Preparing Event", GRAY),
+                    }));
             return;
         }
         int eligible = getEligible().size();
         bossBar.setTitle(ChatColor.RED + "Waiting for players... " + ChatColor.WHITE + eligible);
         bossBar.setProgress(clampProgress((double) tag.idleTime / (double) IDLE_TICKS));
+        if (eligible >= 1) {
+            ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
+                        text("/pvparena", YELLOW),
+                        text(players(eligible) + " waiting", GRAY),
+                    }));
+        } else {
+            ServerPlugin.getInstance().setServerSidebarLines(null);
+        }
         if (eligible < 2) {
             tag.idleTime = 0;
             return;
@@ -361,6 +382,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             bossBar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
         }
+        ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
+                    text("/pvparena", YELLOW),
+                    text(players(aliveCount) + " fighting", GRAY),
+                }));
         if (aliveCount == 0) {
             getLogger().info("The game is a draw!");
             for (Player target : world.getPlayers()) {
@@ -649,6 +674,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void tickEnd() {
+        ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
+                    text("/pvparena", YELLOW),
+                    text("Game Over"),
+                }));
         tag.endTime += 1;
         if (tag.endTime > (30 * 20)) {
             if (getEligible().size() < 2) {
