@@ -294,9 +294,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     private String players(int count) {
-        return count == 1
-            ? "1 player"
-            : count + " players";
+        return count == 1 ? "1 player" : count + " players";
+    }
+
+    private String teams(int count) {
+        return count == 1 ? "1 team" : count + " teams";
     }
 
     void tickIdle() {
@@ -384,7 +386,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
                     text("/pvparena", YELLOW),
-                    text(players(aliveCount) + " fighting", GRAY),
+                    text((tag.useSquads ? teams(aliveCount) : players(aliveCount)) + " fighting", GRAY),
                 }));
         if (aliveCount == 0) {
             getLogger().info("The game is a draw!");
@@ -705,7 +707,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     void ensureWorldIsLoaded() {
-        if (tag.worldName != null && tag.worldUsed < 3) return;
+        if (tag.worldName != null && tag.worldUsed < 1) return;
         tag.worldUsed = 0;
         if (tag.worlds.isEmpty()) {
             tag.worlds = new ArrayList<>(getConfig().getStringList("worlds"));
