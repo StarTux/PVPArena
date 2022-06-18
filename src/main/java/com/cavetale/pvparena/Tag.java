@@ -27,5 +27,13 @@ public final class Tag implements Serializable {
     protected UUID moleUuid;
     protected boolean useSquads;
     protected List<Squad> squads;
-}
+    protected Map<UUID, Integer> scores = new HashMap<>();
 
+    protected int getScore(UUID uuid) {
+        return scores.getOrDefault(uuid, 0);
+    }
+
+    public void addScore(UUID uuid, int score) {
+        scores.put(uuid, Math.max(0, getScore(uuid) + score));
+    }
+}

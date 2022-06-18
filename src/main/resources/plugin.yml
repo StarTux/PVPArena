@@ -1,14 +1,14 @@
 main: com.cavetale.pvparena.PVPArenaPlugin
-
 name: PVPArena
-version: 0.1
-description: PVPArena Plugin
-api-version: 1.18
 
+version: 0.1
+api-version: 1.19
+
+description: PVPArena Plugin
 author: StarTux
 website: https://github.com/StarTux/PVPArena
 
-depend: [Sidebar, AFK, Title, Server]
+depend: [Sidebar, AFK, Title, Server, Mytems, PlayerCache]
 softdepend: []
 
 commands:

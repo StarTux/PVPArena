@@ -2,6 +2,9 @@ package com.cavetale.pvparena;
 
 import com.cavetale.afk.AFKPlugin;
 import com.cavetale.core.event.player.PlayerTeamQuery;
+import com.cavetale.fam.trophy.Highscore;
+import com.cavetale.mytems.Mytems;
+import com.cavetale.mytems.item.trophy.TrophyCategory;
 import com.cavetale.pvparena.struct.AreasFile;
 import com.cavetale.pvparena.struct.Cuboid;
 import com.cavetale.pvparena.struct.Vec3i;
@@ -9,6 +12,7 @@ import com.cavetale.server.ServerPlugin;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
 import com.destroystokyo.paper.MaterialTags;
+import com.winthier.playercache.PlayerCache;
 import com.winthier.title.TitlePlugin;
 import java.io.File;
 import java.io.FileInputStream;
@@ -101,25 +105,40 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
+import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
+import static net.kyori.adventure.text.format.TextColor.color;
+import static net.kyori.adventure.text.format.TextDecoration.*;
 import static net.kyori.adventure.title.Title.Times.times;
 
 public final class PVPArenaPlugin extends JavaPlugin implements Listener {
-    static final int WARM_UP_TICKS = 20 * 30;
-    static final int SUDDEN_DEATH_TICKS = 20 * 60 * 3;
-    static final int TIMED_SCORE_TICKS = 20 * 60 * 5;
-    static final int MOLE_TICKS = 20 * 60 * 5;
-    static final int IDLE_TICKS = 20 * 30;
-    World lobbyWorld;
-    World world;
-    AreasFile areasFile;
-    Tag tag;
-    Random random = new Random();
-    List<Entity> removeEntities = new ArrayList<>();
-    BossBar bossBar;
+    protected static final int WARM_UP_TICKS = 20 * 30;
+    protected static final int SUDDEN_DEATH_TICKS = 20 * 60 * 3;
+    protected static final int TIMED_SCORE_TICKS = 20 * 60 * 5;
+    protected static final int MOLE_TICKS = 20 * 60 * 5;
+    protected static final int IDLE_TICKS = 20 * 30;
+    protected World lobbyWorld;
+    protected World world;
+    protected AreasFile areasFile;
+    protected Tag tag;
+    protected Random random = new Random();
+    protected List<Entity> removeEntities = new ArrayList<>();
+    protected BossBar bossBar;
     private Set<UUID> spectators = new HashSet<>();
-    static final String HEART = "\u2764";
+    protected List<Highscore> highscore = List.of();
+    protected List<Component> highscoreLines = List.of();
+    protected static final String HEART = "\u2764";
+    public static final Component TITLE = join(noSeparators(),
+                                               Mytems.LETTER_P,
+                                               Mytems.LETTER_V,
+                                               Mytems.LETTER_P,
+                                               text("A", color(0xff2200), BOLD),
+                                               text("r", color(0xff562a), BOLD),
+                                               text("e", color(0xff8955), BOLD),
+                                               text("n", color(0xffbd7f), BOLD),
+                                               text("a", color(0xfff0a9), BOLD));
 
     @Override
     public void onEnable() {
@@ -170,6 +189,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     void loadTag() {
         tag = Json.load(new File(getDataFolder(), "save.json"), Tag.class, Tag::new);
+        computeHighscore();
     }
 
     void saveTag() {
@@ -242,6 +262,31 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 return false;
             }
             return true;
+        case "score":
+            if (args.length == 2 && args[1].equals("reset")) {
+                tag.scores.clear();
+                computeHighscore();
+                sender.sendMessage(text("Scores reset", AQUA));
+                return true;
+            }
+            if (args.length == 4 && args[1].equals("add")) {
+                PlayerCache target = PlayerCache.require(args[2]);
+                int value = Integer.parseInt(args[3]);
+                tag.addScore(target.uuid, value);
+                computeHighscore();
+                sender.sendMessage(text("Score of " + target.name + " adjusted by " + value, AQUA));
+                return true;
+            }
+            if (args.length == 2 && args[1].equals("reward")) {
+                int res = Highscore.reward(tag.scores,
+                                           "pvp_arena",
+                                           TrophyCategory.SWORD,
+                                           TITLE,
+                                           hi -> "You earned " + hi.score + " kill" + (hi.score == 1 ? "" : "s"));
+                sender.sendMessage(text(res + " players rewarded", AQUA));
+                return true;
+            }
+            return false;
         default:
             return false;
         }
@@ -775,7 +820,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 Squad squad = new Squad();
                 NamedTextColor color = squadColors.get(i);
                 squad.setTextColor(color);
-                String name = NAMES.key(color);
+                String name = NamedTextColor.NAMES.key(color);
                 if (name.startsWith("light_")) name = name.substring(6);
                 name = name.substring(0, 1).toUpperCase() + name.substring(1);
                 squad.name = name;
@@ -964,6 +1009,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 killer.sendMessage(ChatColor.GOLD + "You received a potion effect!");
             }
             gladiator2.kills += 1;
+            if (tag.event) {
+                tag.addScore(gladiator2.uuid, 1);
+                computeHighscore();
+            }
             if (tag.winRule == WinRule.MOLE) {
                 if (Objects.equals(tag.moleUuid, gladiator.uuid)) {
                     // Mole got killed
@@ -1123,6 +1172,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerSidebar(PlayerSidebarEvent event) {
         List<Component> ls = new ArrayList<>();
+        ls.add(TITLE);
         Player player = event.getPlayer();
         Gladiator playerGladiator = getGladiator(player);
         Squad playerSquad = playerGladiator != null && tag.useSquads
@@ -1145,66 +1195,73 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 ls.add(text("Sudden Death", DARK_RED, TextDecoration.BOLD));
             }
         }
-        if (tag.useSquads) {
-            List<Squad> squads = new ArrayList<>(tag.squads);
-            if (tag.limitedLives) {
-                Collections.sort(squads, (b, a) -> Integer.compare(a.alive, b.alive));
-                for (Squad squad : squads) {
-                    ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                          text(HEART + squad.alive, RED),
-                                          Component.space(),
-                                          text(squad.name, squad.getTextColor())));
+        if (tag.state != ArenaState.IDLE) {
+            if (tag.useSquads) {
+                List<Squad> squads = new ArrayList<>(tag.squads);
+                if (tag.limitedLives) {
+                    Collections.sort(squads, (b, a) -> Integer.compare(a.alive, b.alive));
+                    for (Squad squad : squads) {
+                        ls.add(Component.join(JoinConfiguration.noSeparators(),
+                                              text(HEART + squad.alive, RED),
+                                              Component.space(),
+                                              text(squad.name, squad.getTextColor())));
+                    }
+                } else {
+                    Collections.sort(squads, (b, a) -> Integer.compare(a.score, b.score));
+                    for (Squad squad : squads) {
+                        ls.add(Component.join(JoinConfiguration.noSeparators(),
+                                              text("" + squad.score, WHITE),
+                                              Component.space(),
+                                              text(HEART + squad.alive, RED),
+                                              Component.space(),
+                                              text(squad.name, squad.getTextColor())));
+                    }
                 }
             } else {
-                Collections.sort(squads, (b, a) -> Integer.compare(a.score, b.score));
-                for (Squad squad : squads) {
-                    ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                          text("" + squad.score, WHITE),
-                                          Component.space(),
-                                          text(HEART + squad.alive, RED),
-                                          Component.space(),
-                                          text(squad.name, squad.getTextColor())));
+                List<Gladiator> gladiators = new ArrayList<>(tag.gladiators.values());
+                Collections.sort(gladiators, (b, a) -> {
+                        int c = Integer.compare(!a.gameOver ? 1 : 0,
+                                                !b.gameOver ? 1 : 0);
+                        if (c != 0) return c;
+                        return tag.winRule == WinRule.LAST_SURVIVOR
+                            ? Integer.compare(a.lives, b.lives)
+                            : Integer.compare(a.score, b.score);
+                    });
+                for (Gladiator gladiator : gladiators) {
+                    if (gladiator.gameOver) {
+                        ls.add(Component.join(JoinConfiguration.noSeparators(),
+                                              text("" + gladiator.score, GREEN),
+                                              Component.space(),
+                                              text(gladiator.name, DARK_GRAY)));
+                    } else {
+                        int hearts = (int) Math.ceil(gladiator.health * 0.5);
+                        TextColor nameColor;
+                        if (gladiator.is(player)) {
+                            nameColor = GREEN;
+                        } else {
+                            nameColor = WHITE;
+                        }
+                        if (tag.limitedLives) {
+                            String lvs = gladiator.lives > 0 ? (ChatColor.BLUE + "|" + gladiator.lives) : "";
+                            ls.add(Component.join(JoinConfiguration.noSeparators(),
+                                                  text(HEART + hearts + lvs + " ", RED),
+                                                  text(gladiator.name, nameColor)));
+                        } else {
+                            ls.add(Component.join(JoinConfiguration.noSeparators(),
+                                                  text("" + gladiator.score, WHITE),
+                                                  Component.space(),
+                                                  text(HEART + hearts, RED),
+                                                  Component.space(),
+                                                  text(gladiator.name, nameColor)));
+                        }
+                    }
                 }
             }
         } else {
-            List<Gladiator> gladiators = new ArrayList<>(tag.gladiators.values());
-            Collections.sort(gladiators, (b, a) -> {
-                    int c = Integer.compare(!a.gameOver ? 1 : 0,
-                                            !b.gameOver ? 1 : 0);
-                    if (c != 0) return c;
-                    return tag.winRule == WinRule.LAST_SURVIVOR
-                        ? Integer.compare(a.lives, b.lives)
-                        : Integer.compare(a.score, b.score);
-                });
-            for (Gladiator gladiator : gladiators) {
-                if (gladiator.gameOver) {
-                    ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                          text("" + gladiator.score, GREEN),
-                                          Component.space(),
-                                          text(gladiator.name, DARK_GRAY)));
-                } else {
-                    int hearts = (int) Math.ceil(gladiator.health * 0.5);
-                    TextColor nameColor;
-                    if (gladiator.is(player)) {
-                        nameColor = GREEN;
-                    } else {
-                        nameColor = WHITE;
-                    }
-                    if (tag.limitedLives) {
-                        String lvs = gladiator.lives > 0 ? (ChatColor.BLUE + "|" + gladiator.lives) : "";
-                        ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                              text(HEART + hearts + lvs + " ", RED),
-                                              text(gladiator.name, nameColor)));
-                    } else {
-                        ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                              text("" + gladiator.score, WHITE),
-                                              Component.space(),
-                                              text(HEART + hearts, RED),
-                                              Component.space(),
-                                              text(gladiator.name, nameColor)));
-                    }
-                }
-            }
+            ls.add(text("Preparing for Event...", RED));
+        }
+        if (tag.event) {
+            ls.addAll(highscoreLines);
         }
         if (ls.isEmpty()) return;
         event.add(this, Priority.DEFAULT, ls);
@@ -1873,5 +1930,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 }
             }
         }
+    }
+
+    protected void computeHighscore() {
+        highscore = Highscore.of(tag.scores);
+        highscoreLines = Highscore.sidebar(highscore, TrophyCategory.SWORD);
     }
 }
