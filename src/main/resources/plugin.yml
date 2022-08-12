@@ -34,6 +34,7 @@ commands:
       /pvparena skip - Force skip current world next round
       /pvparena areas - Dump current areas file
       /pvparena event - Toggle event mode
+      /pvparena score - Score commands
 
 permissions:
 

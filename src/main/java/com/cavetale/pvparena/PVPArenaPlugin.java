@@ -302,7 +302,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 .collect(Collectors.toList());
         }
         if (args.length == 2 && args[0].equals("score")) {
-            return Arrays.asList("clear", "add", "reward")
+            return Arrays.asList("reset", "add", "reward")
                 .stream()
                 .filter(s -> s.contains(args[args.length - 1]))
                 .collect(Collectors.toList());
