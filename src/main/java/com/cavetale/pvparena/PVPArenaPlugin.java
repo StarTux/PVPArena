@@ -249,19 +249,19 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             sender.sendMessage("Event Mode: " + tag.event);
             return true;
-        case "reward":
-            if (args.length == 2) {
-                Player target = Bukkit.getPlayerExact(args[1]);
-                if (target == null) {
-                    sender.sendMessage("Player not found: " + args[1]);
-                    return true;
-                }
-                sender.sendMessage("Rewarding " + target.getName() + "...");
-                rewardEventWinner(new Gladiator(target));
-            } else {
-                return false;
-            }
-            return true;
+        // case "reward":
+        //     if (args.length == 2) {
+        //         Player target = Bukkit.getPlayerExact(args[1]);
+        //         if (target == null) {
+        //             sender.sendMessage("Player not found: " + args[1]);
+        //             return true;
+        //         }
+        //         sender.sendMessage("Rewarding " + target.getName() + "...");
+        //         rewardEventWinner(new Gladiator(target));
+        //     } else {
+        //         return false;
+        //     }
+        //     return true;
         case "score":
             if (args.length == 2 && args[1].equals("reset")) {
                 tag.scores.clear();
@@ -296,7 +296,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     public List<String> onTabComplete(final CommandSender sender, final Command command, final String alias, final String[] args) {
         if (args.length == 0) return null;
         if (args.length == 1) {
-            return Arrays.asList("start", "stop", "save", "load", "rule", "nextworld", "skip", "areas", "event", "reward")
+            return Arrays.asList("start", "stop", "save", "load", "rule", "nextworld", "skip", "areas", "event", "score")
+                .stream()
+                .filter(s -> s.contains(args[args.length - 1]))
+                .collect(Collectors.toList());
+        }
+        if (args.length == 2 && args[0].equals("score")) {
+            return Arrays.asList("clear", "add", "reward")
                 .stream()
                 .filter(s -> s.contains(args[args.length - 1]))
                 .collect(Collectors.toList());
