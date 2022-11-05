@@ -201,6 +201,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     private void tick() {
         if (getEligible().isEmpty()) {
+            ServerPlugin.getInstance().setServerSidebarLines(null);
             log("Eligible is empty");
             setIdle();
             return;
@@ -218,7 +219,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     protected void setIdle() {
         if (tag.state == ArenaState.IDLE) return;
-        ServerPlugin.getInstance().setServerSidebarLines(null);
         log("State IDLE");
         tag.state = ArenaState.IDLE;
         tag.idleTime = 0;
