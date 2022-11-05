@@ -1560,7 +1560,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         result.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
         result.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
         result.setGameRule(GameRule.DO_FIRE_TICK, false);
-        result.setGameRule(GameRule.DO_FIRE_TICK, false);
+        result.setGameRule(GameRule.FIRE_DAMAGE, true);
         result.setGameRule(GameRule.SHOW_DEATH_MESSAGES, true);
         result.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, false);
         result.setDifficulty(Difficulty.EASY);
