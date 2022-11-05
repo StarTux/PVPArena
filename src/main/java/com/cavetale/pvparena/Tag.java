@@ -28,6 +28,7 @@ public final class Tag implements Serializable {
     protected boolean useSquads;
     protected List<Squad> squads;
     protected Map<UUID, Integer> scores = new HashMap<>();
+    protected boolean debug;
 
     protected int getScore(UUID uuid) {
         return scores.getOrDefault(uuid, 0);

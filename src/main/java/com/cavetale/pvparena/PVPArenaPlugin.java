@@ -1,6 +1,8 @@
 package com.cavetale.pvparena;
 
 import com.cavetale.afk.AFKPlugin;
+import com.cavetale.core.event.hud.PlayerHudEvent;
+import com.cavetale.core.event.hud.PlayerHudPriority;
 import com.cavetale.core.event.player.PlayerTeamQuery;
 import com.cavetale.fam.trophy.Highscore;
 import com.cavetale.mytems.Mytems;
@@ -9,10 +11,7 @@ import com.cavetale.pvparena.struct.AreasFile;
 import com.cavetale.pvparena.struct.Cuboid;
 import com.cavetale.pvparena.struct.Vec3i;
 import com.cavetale.server.ServerPlugin;
-import com.cavetale.sidebar.PlayerSidebarEvent;
-import com.cavetale.sidebar.Priority;
 import com.destroystokyo.paper.MaterialTags;
-import com.winthier.playercache.PlayerCache;
 import com.winthier.title.TitlePlugin;
 import java.io.File;
 import java.io.FileInputStream;
@@ -32,6 +31,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -39,7 +39,6 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
@@ -53,11 +52,6 @@ import org.bukkit.WorldType;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.Leaves;
-import org.bukkit.boss.BarColor;
-import org.bukkit.boss.BarStyle;
-import org.bukkit.boss.BossBar;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.AbstractArrow;
@@ -105,8 +99,11 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
+import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
+import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextColor.color;
@@ -114,6 +111,9 @@ import static net.kyori.adventure.text.format.TextDecoration.*;
 import static net.kyori.adventure.title.Title.Times.times;
 
 public final class PVPArenaPlugin extends JavaPlugin implements Listener {
+    public static final String PERM_PLAYER = "pvparena.pvparena";
+    public static final String PERM_ADMIN = "pvparena.admin";
+    public static final String PERM_STREAMER = "group.streamer";
     protected static final int WARM_UP_TICKS = 20 * 30;
     protected static final int SUDDEN_DEATH_TICKS = 20 * 60 * 3;
     protected static final int TIMED_SCORE_TICKS = 20 * 60 * 5;
@@ -153,7 +153,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             areasFile = loadAreasFile();
         }
         lobbyWorld = Bukkit.getWorlds().get(0);
-        bossBar = Bukkit.createBossBar("PVPArena", BarColor.RED, BarStyle.SOLID);
+        bossBar = BossBar.bossBar(text("PVPArena", RED), 1.0f, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
+        new PVPAdminCommand(this).enable();
         for (Player player : Bukkit.getOnlinePlayers()) {
             enter(player);
         }
@@ -166,15 +167,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             exit(player);
         }
         cleanUpGame();
-        if (bossBar != null) {
-            bossBar.removeAll();
-            bossBar = null;
-        }
         ServerPlugin.getInstance().setServerSidebarLines(null);
     }
 
-    void enter(Player player) {
-        bossBar.addPlayer(player);
+    protected void enter(Player player) {
         if (tag.state == ArenaState.PLAY && tag.useSquads) {
             Gladiator gladiator = getGladiator(player);
             if (gladiator != null) {
@@ -183,138 +179,29 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    void exit(Player player) {
-        bossBar.removePlayer(player);
+    protected void exit(Player player) {
     }
 
-    void loadTag() {
+    protected void loadTag() {
         tag = Json.load(new File(getDataFolder(), "save.json"), Tag.class, Tag::new);
         computeHighscore();
     }
 
-    void saveTag() {
+    protected void saveTag() {
         Json.save(new File(getDataFolder(), "save.json"), tag);
     }
 
-    @Override
-    public boolean onCommand(final CommandSender sender, final Command command, final String alias, final String[] args) {
-        if (args.length == 0) {
-            return false;
-        }
-        switch (args[0]) {
-        case "start":
-            cleanUpGame();
-            startGame();
-            sender.sendMessage("started");
-            return true;
-        case "stop":
-            cleanUpGame();
-            setIdle();
-            sender.sendMessage("stopped");
-            return true;
-        case "save":
-            saveTag();
-            sender.sendMessage("tag saved");
-            return true;
-        case "load":
-            loadTag();
-            sender.sendMessage("tag loaded");
-            return true;
-        case "rule":
-            tag.specialRule = SpecialRule.valueOf(args[1].toUpperCase());
-            sender.sendMessage("SpecialRule = " + tag.specialRule);
-            return true;
-        case "nextworld":
-            tag.worlds = new ArrayList<>(Arrays.asList(Arrays.copyOfRange(args, 1, args.length)));
-            tag.worldUsed = 999;
-            sender.sendMessage("Worlds coming up: " + tag.worlds);
-            return true;
-        case "skip":
-            tag.worldUsed = 999;
-            sender.sendMessage("New world next round!");
-            return true;
-        case "areas":
-            sender.sendMessage("AreasFile: " + Json.serialize(areasFile));
-            return true;
-        case "event":
-            if (args.length > 2) return false;
-            if (args.length >= 2) {
-                try {
-                    tag.event = Boolean.parseBoolean(args[1]);
-                } catch (IllegalArgumentException iae) {
-                    sender.sendMessage("Boolean expected: " + args[1]);
-                    return true;
-                }
-                saveTag();
-            }
-            sender.sendMessage("Event Mode: " + tag.event);
-            return true;
-        // case "reward":
-        //     if (args.length == 2) {
-        //         Player target = Bukkit.getPlayerExact(args[1]);
-        //         if (target == null) {
-        //             sender.sendMessage("Player not found: " + args[1]);
-        //             return true;
-        //         }
-        //         sender.sendMessage("Rewarding " + target.getName() + "...");
-        //         rewardEventWinner(new Gladiator(target));
-        //     } else {
-        //         return false;
-        //     }
-        //     return true;
-        case "score":
-            if (args.length == 2 && args[1].equals("reset")) {
-                tag.scores.clear();
-                computeHighscore();
-                sender.sendMessage(text("Scores reset", AQUA));
-                return true;
-            }
-            if (args.length == 4 && args[1].equals("add")) {
-                PlayerCache target = PlayerCache.require(args[2]);
-                int value = Integer.parseInt(args[3]);
-                tag.addScore(target.uuid, value);
-                computeHighscore();
-                sender.sendMessage(text("Score of " + target.name + " adjusted by " + value, AQUA));
-                return true;
-            }
-            if (args.length == 2 && args[1].equals("reward")) {
-                int res = Highscore.reward(tag.scores,
-                                           "pvp_arena",
-                                           TrophyCategory.SWORD,
-                                           TITLE,
-                                           hi -> "You earned " + hi.score + " kill" + (hi.score == 1 ? "" : "s"));
-                sender.sendMessage(text(res + " players rewarded", AQUA));
-                return true;
-            }
-            return false;
-        default:
-            return false;
-        }
+    private void log(String msg) {
+        getLogger().info("[" + tag.worldName + "] [" + tag.state + "] " + msg);
     }
 
-    @Override
-    public List<String> onTabComplete(final CommandSender sender, final Command command, final String alias, final String[] args) {
-        if (args.length == 0) return null;
-        if (args.length == 1) {
-            return Arrays.asList("start", "stop", "save", "load", "rule", "nextworld", "skip", "areas", "event", "score")
-                .stream()
-                .filter(s -> s.contains(args[args.length - 1]))
-                .collect(Collectors.toList());
-        }
-        if (args.length == 2 && args[0].equals("score")) {
-            return Arrays.asList("reset", "add", "reward")
-                .stream()
-                .filter(s -> s.contains(args[args.length - 1]))
-                .collect(Collectors.toList());
-        }
-        return getConfig().getStringList("worlds").stream()
-            .filter(s -> s.contains(args[args.length - 1]))
-            .collect(Collectors.toList());
+    private void logSevere(String msg) {
+        getLogger().severe("[" + tag.worldName + "] [" + tag.state + "] " + msg);
     }
 
-    void tick() {
+    private void tick() {
         if (getEligible().isEmpty()) {
-            ServerPlugin.getInstance().setServerSidebarLines(null);
+            log("Eligible is empty");
             setIdle();
             return;
         }
@@ -329,7 +216,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    void setIdle() {
+    protected void setIdle() {
+        if (tag.state == ArenaState.IDLE) return;
+        ServerPlugin.getInstance().setServerSidebarLines(null);
+        log("State IDLE");
         tag.state = ArenaState.IDLE;
         tag.idleTime = 0;
         for (Player target : Bukkit.getOnlinePlayers()) {
@@ -340,8 +230,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    double clampProgress(double in) {
-        return Math.max(0.0, Math.min(1.0, in));
+    private static float clampProgress(float in) {
+        return Math.max(0.0f, Math.min(1.0f, in));
     }
 
     private String players(int count) {
@@ -352,11 +242,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return count == 1 ? "1 team" : count + " teams";
     }
 
-    void tickIdle() {
+    private void tickIdle() {
         if (tag.event) {
             tag.idleTime = 0;
-            bossBar.setTitle(ChatColor.RED + "Preparing for Event...");
-            bossBar.setProgress(0.0f);
+            bossBar.name(text("Preparing for Event...", RED));
+            bossBar.progress(0.0f);
             ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
                         text("/pvparena", YELLOW),
                         text("Preparing Event", GRAY),
@@ -364,8 +254,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             return;
         }
         int eligible = getEligible().size();
-        bossBar.setTitle(ChatColor.RED + "Waiting for players... " + ChatColor.WHITE + eligible);
-        bossBar.setProgress(clampProgress((double) tag.idleTime / (double) IDLE_TICKS));
+        bossBar.name(textOfChildren(text("Waiting for Players: ", GRAY),
+                                    text(eligible, GREEN)));
+        bossBar.progress(clampProgress((float) tag.idleTime / (float) IDLE_TICKS));
         if (eligible >= 1) {
             ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
                         text("/pvparena", YELLOW),
@@ -384,7 +275,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         tag.idleTime += 1;
     }
 
-    void tickPlay() {
+    private void tickPlay() {
         List<Gladiator> aliveGladiators = new ArrayList<>();
         List<Squad> aliveSquads = new ArrayList<>();
         if (tag.useSquads) {
@@ -413,27 +304,27 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         int aliveCount = tag.useSquads ? aliveSquads.size() : aliveGladiators.size();
         if (tag.warmUp) {
             int seconds = (WARM_UP_TICKS - tag.gameTime) / 20;
-            bossBar.setTitle(ChatColor.RED + "PvP begins in " + seconds + "s");
-            bossBar.setProgress(clampProgress((double) tag.gameTime / (double) WARM_UP_TICKS));
+            bossBar.name(text("PvP begins in " + seconds + "s", RED));
+            bossBar.progress(clampProgress((float) tag.gameTime / (float) WARM_UP_TICKS));
         } else if (tag.suddenDeath) {
-            bossBar.setTitle(ChatColor.DARK_RED + "Sudden Death " + aliveGladiators.size() + "/" + tag.totalPlayers);
-            bossBar.setProgress(1.0);
+            bossBar.name(text("Sudden Death " + aliveGladiators.size() + "/" + tag.totalPlayers, DARK_RED));
+            bossBar.progress(1.0f);
         } else {
-            bossBar.setTitle(ChatColor.RED + "Fight " + aliveGladiators.size() + "/" + tag.totalPlayers);
-            final double progress;
+            bossBar.name(text("Fight " + aliveGladiators.size() + "/" + tag.totalPlayers, RED));
+            final float progress;
             switch (tag.winRule) {
             case TIMED_SCORE:
-                progress = clampProgress((double) tag.gameTime / (double) TIMED_SCORE_TICKS);
+                progress = clampProgress((float) tag.gameTime / (float) TIMED_SCORE_TICKS);
                 break;
             case MOLE:
-                progress = clampProgress((double) tag.gameTime / (double) MOLE_TICKS);
+                progress = clampProgress((float) tag.gameTime / (float) MOLE_TICKS);
                 break;
             case LAST_SURVIVOR:
             default:
-                progress = clampProgress((double) tag.gameTime / (double) SUDDEN_DEATH_TICKS);
+                progress = clampProgress((float) tag.gameTime / (float) SUDDEN_DEATH_TICKS);
                 break;
             }
-            bossBar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
+            bossBar.progress(Math.max(0.0f, Math.min(1.0f, progress)));
         }
         ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
                     text("/pvparena", YELLOW),
@@ -444,13 +335,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             for (Player target : world.getPlayers()) {
                 target.showTitle(Title.title(text("Draw", RED),
                                              text("Nobody survives", RED)));
-                target.sendMessage(ChatColor.RED + "Draw! Nobody survives.");
+                target.sendMessage(text("Draw! Nobody survives", RED));
             }
             endGame();
             return;
         }
         if (tag.winRule == WinRule.LAST_SURVIVOR) {
-            if (aliveCount == 1) {
+            if (aliveCount == 1 && !tag.debug) {
                 if (tag.useSquads) {
                     squadWinsTheGame(aliveSquads.get(0));
                 } else {
@@ -460,8 +351,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             if (tag.gameTime == SUDDEN_DEATH_TICKS) {
                 for (Player target : world.getPlayers()) {
-                    target.sendMessage(ChatColor.DARK_RED + "Sudden Death!");
-                    target.showTitle(Title.title(Component.empty(),
+                    target.sendMessage(text("Sudden Death!", DARK_RED));
+                    target.showTitle(Title.title(empty(),
                                                  text("Sudden Death!", DARK_RED),
                                                  times(Duration.ZERO,
                                                        Duration.ofSeconds(1),
@@ -523,7 +414,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                                              times(Duration.ZERO,
                                                    Duration.ofSeconds(1),
                                                    Duration.ZERO)));
-                target.sendMessage(ChatColor.DARK_RED + "Fight! " + tag.specialRule.displayName);
+                target.sendMessage(text("Fight! " + tag.specialRule.displayName, DARK_RED));
                 target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, SoundCategory.MASTER, 0.1f, 1.2f);
             }
         }
@@ -599,12 +490,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         removeEntities.removeIf(e -> !e.isValid());
     }
 
-    void playerWinsTheGame(Gladiator winner) {
+    private void playerWinsTheGame(Gladiator winner) {
         getLogger().info("Winner " + winner.getName());
         for (Player target : world.getPlayers()) {
             target.showTitle(Title.title(text(winner.getName(), GREEN),
                                          text("Wins this round!", GREEN)));
-            target.sendMessage(ChatColor.GREEN + winner.getName() + " wins this round!");
+            target.sendMessage(text(winner.getName() + " wins this round!", GREEN));
             target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
         }
         if (tag.event) {
@@ -613,7 +504,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         endGame();
     }
 
-    void playersDraw(List<Gladiator> drawers) {
+    private void playersDraw(List<Gladiator> drawers) {
         String[] names = new String[drawers.size()];
         for (int i = 0; i < names.length; i += 1) {
             names[i] = drawers.get(i).getName();
@@ -622,7 +513,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         for (Player target : world.getPlayers()) {
             target.showTitle(Title.title(text("Draw", RED),
                                          text(String.join(", ", names), RED)));
-            target.sendMessage(ChatColor.RED + "The game is a draw between " + String.join(", ", names));
+            target.sendMessage(text("The game is a draw between " + String.join(", ", names), GREEN));
             target.playSound(target.getLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, SoundCategory.MASTER, 0.1f, 2.0f);
         }
         if (tag.event) {
@@ -633,7 +524,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         endGame();
     }
 
-    protected void squadWinsTheGame(Squad winner) {
+    private void squadWinsTheGame(Squad winner) {
         List<Gladiator> gladiators = new ArrayList<>();
         for (Gladiator gladiator : tag.gladiators.values()) {
             if (gladiator.squad != winner.index) continue;
@@ -642,12 +533,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         getLogger().info("Team " + winner.name + " wins the game: " + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text(winner.name, winner.getTextColor()),
                                   text("Wins this round!", winner.getTextColor()));
-        Component message = Component.join(JoinConfiguration.noSeparators(),
-                                           text(winner.name + " wins this round: ", winner.getTextColor()),
-                                           Component.join(JoinConfiguration.separator(text(", ", GRAY)),
-                                                          gladiators.stream()
-                                                          .map(g -> text(g.name, WHITE))
-                                                          .collect(Collectors.toList())));
+        Component message = join(JoinConfiguration.noSeparators(),
+                                 text(winner.name + " wins this round: ", winner.getTextColor()),
+                                 join(JoinConfiguration.separator(text(", ", GRAY)),
+                                      gladiators.stream()
+                                      .map(g -> text(g.name, WHITE))
+                                      .collect(Collectors.toList())));
         for (Player target : world.getPlayers()) {
             target.sendMessage("");
             target.showTitle(title);
@@ -676,17 +567,17 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                          + " win the game: "
                          + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text("Draw!", GRAY),
-                                  Component.empty());
-        Component message = Component.join(JoinConfiguration.noSeparators(),
-                                           Component.join(JoinConfiguration.separator(text(", ", GRAY)),
-                                                          winners.stream()
-                                                          .map(sq -> text(sq.name, sq.getTextColor()))
-                                                          .collect(Collectors.toList())),
-                                           text(" draw this round: ", GRAY),
-                                           Component.join(JoinConfiguration.separator(text(", ", GRAY)),
-                                                          gladiators.stream()
-                                                          .map(g -> text(g.name, WHITE))
-                                                          .collect(Collectors.toList())));
+                                  empty());
+        Component message = join(JoinConfiguration.noSeparators(),
+                                 join(JoinConfiguration.separator(text(", ", GRAY)),
+                                      winners.stream()
+                                      .map(sq -> text(sq.name, sq.getTextColor()))
+                                      .collect(Collectors.toList())),
+                                 text(" draw this round: ", GRAY),
+                                 join(JoinConfiguration.separator(text(", ", GRAY)),
+                                      gladiators.stream()
+                                      .map(g -> text(g.name, WHITE))
+                                      .collect(Collectors.toList())));
         for (Player target : world.getPlayers()) {
             target.sendMessage("");
             target.showTitle(title);
@@ -714,8 +605,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 int seconds = (int) ((gladiator.respawnCooldown - now) / 1000L);
                 if (gladiator.respawnCooldownDisplay > seconds) {
                     gladiator.respawnCooldownDisplay = seconds;
-                    player.showTitle(Title.title(text("" + ChatColor.DARK_RED + ChatColor.BOLD + (seconds + 1)),
-                                                 text("" + ChatColor.DARK_RED + "Get Ready!"),
+                    player.showTitle(Title.title(text((seconds + 1), DARK_RED, BOLD),
+                                                 text("Get Ready!", DARK_RED),
                                                  times(Duration.ofMillis(0),
                                                        Duration.ofMillis(500),
                                                        Duration.ofMillis(500))));
@@ -726,7 +617,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    void tickEnd() {
+    private void tickEnd() {
         ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
                     text("/pvparena", YELLOW),
                     text("Game Over"),
@@ -752,12 +643,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return tag.squads.get(gladiator.squad);
     }
 
-    int getScore(Player player) {
+    public int getScore(Player player) {
         Gladiator gladiator = getGladiator(player);
         return gladiator != null ? gladiator.score : 0;
     }
 
-    void ensureWorldIsLoaded() {
+    private void ensureWorldIsLoaded() {
         if (tag.worldName != null && tag.worldUsed < 1) return;
         tag.worldUsed = 0;
         if (tag.worlds.isEmpty()) {
@@ -771,7 +662,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         areasFile = loadAreasFile();
     }
 
-    void startGame() {
+    protected void startGame() {
         ensureWorldIsLoaded();
         List<WinRule> wins = new ArrayList<>();
         int total = 0;
@@ -790,7 +681,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             if (!spectators.contains(player.getUniqueId()) && AFKPlugin.isAfk(player)) {
                 spectators.add(player.getUniqueId());
-                player.sendMessage(ChatColor.GREEN + "You were marked as spectator due to inactivity");
+                player.sendMessage(text("You were marked as spectator due to inactivity", YELLOW));
             }
             if (spectators.contains(player.getUniqueId())) {
                 preparePlayer(player);
@@ -805,7 +696,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         tag.useSquads = eligible.size() > 5;
         if (tag.useSquads) {
             List<Integer> spawnIndexes = new ArrayList<>();
-            for (int i = 0; i < areasFile.getAreas().getSpawn().size(); i += 1) spawnIndexes.add(i);
+            for (int i = 0; i < areasFile.getAreas().getSpawn().size(); i += 1) {
+                spawnIndexes.add(i);
+            }
             if (spawnIndexes.isEmpty()) spawnIndexes = Arrays.asList(0);
             Collections.shuffle(spawnIndexes);
             List<NamedTextColor> squadColors = Arrays.asList(new NamedTextColor[] {
@@ -821,6 +714,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             int squadCount;
             squadCount = eligible.size() < 12 ? 2 : 3;
             squadCount = Math.min(squadCount, squadColors.size());
+            if (areasFile.getAreas().getSpawn().size() < squadCount) {
+                logSevere("Fewer spawn areas than squads: " + areasFile.getAreas().getSpawn().size() + "/" + squadCount);
+                squadCount = Math.min(squadCount, areasFile.getAreas().getSpawn().size());
+            }
             tag.squads = new ArrayList<>();
             for (int i = 0; i < squadCount; i += 1) {
                 Squad squad = new Squad();
@@ -865,16 +762,20 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         for (Player target : Bukkit.getOnlinePlayers()) {
             target.sendMessage("");
-            target.sendMessage("" + ChatColor.RED + ChatColor.BOLD + tag.winRule.displayName
-                               + ChatColor.WHITE + " " + tag.winRule.getDescription());
-            target.sendMessage(ChatColor.GRAY + "Special: " + ChatColor.WHITE + tag.specialRule.displayName);
+            target.sendMessage(join(noSeparators(),
+                                    text(tag.winRule.displayName, RED, BOLD),
+                                    text(" " + tag.winRule.getDescription(), WHITE)));
+            target.sendMessage(join(noSeparators(),
+                                    text("Special: ", GRAY),
+                                    text(tag.specialRule.displayName, WHITE)));
             if (tag.winRule == WinRule.MOLE && Objects.equals(target.getUniqueId(), tag.moleUuid)) {
-                target.showTitle(Title.title(Component.empty(),
+                target.showTitle(Title.title(empty(),
                                              text("You are the mole!", RED)));
-                target.sendMessage(ChatColor.RED + "You are the mole!");
+                target.sendMessage(text("You are the mole!", RED));
             }
             target.sendMessage("");
         }
+        log("State PLAY");
         tag.state = ArenaState.PLAY;
         world.setPVP(false);
         tag.gameTime = 0;
@@ -884,13 +785,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         tag.worldUsed += 1;
     }
 
-    void resetPlayer(Player target) {
+    protected void resetPlayer(Player target) {
         target.getInventory().clear();
         target.setGameMode(GameMode.ADVENTURE);
         preparePlayer(target);
     }
 
-    void preparePlayer(Player target) {
+    protected void preparePlayer(Player target) {
         target.setHealth(20.0);
         target.setFoodLevel(20);
         target.setSaturation(20f);
@@ -901,15 +802,16 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    void endGame() {
+    protected void endGame() {
         if (tag.state != ArenaState.PLAY) return;
         cleanUpGame();
         tag.endTime = 0;
+        log("State END");
         tag.state = ArenaState.END;
         saveTag();
     }
 
-    void cleanUpGame() {
+    protected void cleanUpGame() {
         for (Entity e : removeEntities) e.remove();
         for (Player p : Bukkit.getOnlinePlayers()) {
             TitlePlugin.getInstance().setColor(p, null);
@@ -918,7 +820,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerDeath(PlayerDeathEvent event) {
+    private void onPlayerDeath(PlayerDeathEvent event) {
         for (Player target : Bukkit.getOnlinePlayers()) {
             target.sendActionBar(event.deathMessage());
         }
@@ -987,11 +889,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     if (item == null || item.getType() == Material.AIR) continue;
                     enchant(item);
                 }
-                killer.sendMessage(ChatColor.GOLD + "Your gear was improved");
+                killer.sendMessage(text("Your gear was improved", GOLD));
             }
             if (tag.specialRule == SpecialRule.HEAL_ON_KILL) {
                 killer.setHealth(killer.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
-                killer.sendMessage(ChatColor.GOLD + "You've been healed");
+                killer.sendMessage(text("You've been healed", GOLD));
             }
             if (tag.specialRule == SpecialRule.GEAR_ON_KILL) {
                 ItemStack item;
@@ -1002,7 +904,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 default: item = null;
                 }
                 if (item != null) giveItem(player, item);
-                killer.sendMessage(ChatColor.GOLD + "You received extra gear");
+                killer.sendMessage(text("You received extra gear", GOLD));
             }
             if (tag.specialRule == SpecialRule.POTION_ON_KILL) {
                 List<PotionEffectType> pts = Arrays.asList(PotionEffectType.INCREASE_DAMAGE,
@@ -1012,7 +914,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                                                            PotionEffectType.DAMAGE_RESISTANCE);
                 PotionEffectType potion = pts.get(random.nextInt(pts.size()));
                 killer.addPotionEffect(new PotionEffect(potion, 20 * 30, 1, true, false, true));
-                killer.sendMessage(ChatColor.GOLD + "You received a potion effect!");
+                killer.sendMessage(text("You received a potion effect!", GOLD));
             }
             gladiator2.kills += 1;
             if (tag.event) {
@@ -1029,13 +931,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     if (!killer.equals(player)) {
                         tag.moleUuid = gladiator2.uuid;
                         killer.setHealth(killer.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
-                        killer.showTitle(Title.title(Component.empty(),
-                                                     text(ChatColor.RED + "You are the mole!")));
-                        killer.sendMessage(ChatColor.RED + "You are the mole!");
+                        killer.showTitle(Title.title(empty(),
+                                                     text("You are the mole!", RED)));
+                        killer.sendMessage(text("You are the mole!", RED));
                     } else {
                         tag.moleUuid = null;
                     }
-                    player.sendMessage(ChatColor.RED + "You are no longer the mole");
+                    player.sendMessage(text("You are no longer the mole", RED));
                 } else if (Objects.equals(tag.moleUuid, gladiator2.uuid)) {
                     // Killer is mole: mole killed someone
                     gladiator2.score += 1;
@@ -1052,7 +954,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             getLogger().info(killer.getName() + " killed " + player.getName());
         } else {
             if (tag.winRule == WinRule.MOLE && Objects.equals(gladiator.uuid, tag.moleUuid)) {
-                player.sendMessage(ChatColor.RED + "You are no longer the mole");
+                player.sendMessage(text("You are no longer the mole", RED));
                 tag.moleUuid = null;
             }
         }
@@ -1070,13 +972,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                         alive.teleport(locs.get(i++), TeleportCause.PLUGIN);
                     }
                     for (Player target : Bukkit.getOnlinePlayers()) {
-                        target.sendMessage(ChatColor.GREEN + "Shuffle!");
+                        target.sendMessage(text("Shuffle!", GREEN));
                     }
                 });
         }
     }
 
-    List<Vec3i> findSpawnVectors() {
+    protected List<Vec3i> findSpawnVectors() {
         if (areasFile.getAreas().getSpawn().isEmpty()) {
             return Arrays.asList(Vec3i.of(world.getSpawnLocation()));
         }
@@ -1087,7 +989,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return new ArrayList<>(result);
     }
 
-    Vec3i findSpawnVector() {
+    protected Vec3i findSpawnVector() {
         List<Vec3i> blocks = findSpawnVectors();
         if (blocks.size() == 1) return blocks.get(0);
         List<Vec3i> players = new ArrayList<>();
@@ -1121,7 +1023,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return result;
     }
 
-    Location findSpawnLocation() {
+    protected Location findSpawnLocation() {
         Vec3i vector = findSpawnVector();
         Location location = world.getBlockAt(vector.x, vector.y, vector.z).getLocation();
         location = location.add(0.5, 0.1, 0.5);
@@ -1129,7 +1031,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return location;
     }
 
-    Location findSpawnLocation(Player player) {
+    protected Location findSpawnLocation(Player player) {
         if (!tag.useSquads) return findSpawnLocation();
         Gladiator gladiator = getGladiator(player);
         if (gladiator == null) return findSpawnLocation();
@@ -1144,7 +1046,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return location;
     }
 
-    void respawn(Player player) {
+    protected void respawn(Player player) {
         Location spawnLocation = findSpawnLocation(player);
         preparePlayer(player);
         player.setGameMode(GameMode.ADVENTURE);
@@ -1155,7 +1057,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 enchant(item);
             }
             giveGear(player);
-            player.sendMessage(ChatColor.GOLD + "You received extra gear!");
+            player.sendMessage(text("You received extra gear!", GOLD));
         }
     }
 
@@ -1169,14 +1071,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     public List<Player> getEligible() {
         return Bukkit.getOnlinePlayers()
             .stream()
-            .filter(p -> !p.isPermissionSet("group.streamer") || !p.hasPermission("group.streamer"))
-            .filter(p -> p.hasPermission("pvparena.player"))
+            .filter(p -> !p.isPermissionSet(PERM_STREAMER) || !p.hasPermission(PERM_STREAMER))
+            .filter(p -> p.hasPermission(PERM_PLAYER))
             .filter(p -> !spectators.contains(p.getUniqueId()))
             .collect(Collectors.toList());
     }
 
     @EventHandler
-    public void onPlayerSidebar(PlayerSidebarEvent event) {
+    private void onPlayerHud(PlayerHudEvent event) {
+        event.bossbar(PlayerHudPriority.HIGH, bossBar);
         List<Component> ls = new ArrayList<>();
         ls.add(TITLE);
         Player player = event.getPlayer();
@@ -1190,12 +1093,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (playerSquad != null) {
                 ls.add(text("Team " + playerSquad.name, playerSquad.getTextColor(), TextDecoration.BOLD));
             }
-            ls.add(text(ChatColor.GRAY + "Win " + ChatColor.RED + tag.winRule.displayName));
-            ls.add(text(ChatColor.GRAY + "Special " + ChatColor.RED + tag.specialRule.displayName));
+            ls.add(textOfChildren(text("Win ", GRAY),
+                                  text(tag.winRule.displayName, RED)));
+            ls.add(textOfChildren(text("Special ", GRAY),
+                                  text(tag.specialRule.displayName, RED)));
             if (tag.limitedLives && playerGladiator != null) {
-                ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                      text("Lives ", GRAY),
-                                      text("" + playerGladiator.lives, RED)));
+                ls.add(join(JoinConfiguration.noSeparators(),
+                            text("Lives ", GRAY),
+                            text("" + playerGladiator.lives, RED)));
             }
             if (tag.suddenDeath) {
                 ls.add(text("Sudden Death", DARK_RED, TextDecoration.BOLD));
@@ -1207,20 +1112,20 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 if (tag.limitedLives) {
                     Collections.sort(squads, (b, a) -> Integer.compare(a.alive, b.alive));
                     for (Squad squad : squads) {
-                        ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                              text(HEART + squad.alive, RED),
-                                              Component.space(),
-                                              text(squad.name, squad.getTextColor())));
+                        ls.add(join(JoinConfiguration.noSeparators(),
+                                    text(HEART + squad.alive, RED),
+                                    space(),
+                                    text(squad.name, squad.getTextColor())));
                     }
                 } else {
                     Collections.sort(squads, (b, a) -> Integer.compare(a.score, b.score));
                     for (Squad squad : squads) {
-                        ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                              text("" + squad.score, WHITE),
-                                              Component.space(),
-                                              text(HEART + squad.alive, RED),
-                                              Component.space(),
-                                              text(squad.name, squad.getTextColor())));
+                        ls.add(join(JoinConfiguration.noSeparators(),
+                                    text("" + squad.score, WHITE),
+                                    space(),
+                                    text(HEART + squad.alive, RED),
+                                    space(),
+                                    text(squad.name, squad.getTextColor())));
                     }
                 }
             } else {
@@ -1235,10 +1140,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     });
                 for (Gladiator gladiator : gladiators) {
                     if (gladiator.gameOver) {
-                        ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                              text("" + gladiator.score, GREEN),
-                                              Component.space(),
-                                              text(gladiator.name, DARK_GRAY)));
+                        ls.add(join(JoinConfiguration.noSeparators(),
+                                    text("" + gladiator.score, GREEN),
+                                    space(),
+                                    text(gladiator.name, DARK_GRAY)));
                     } else {
                         int hearts = (int) Math.ceil(gladiator.health * 0.5);
                         TextColor nameColor;
@@ -1248,37 +1153,38 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                             nameColor = WHITE;
                         }
                         if (tag.limitedLives) {
-                            String lvs = gladiator.lives > 0 ? (ChatColor.BLUE + "|" + gladiator.lives) : "";
-                            ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                                  text(HEART + hearts + lvs + " ", RED),
-                                                  text(gladiator.name, nameColor)));
+                            ls.add(join(JoinConfiguration.noSeparators(),
+                                        text(HEART + hearts, RED),
+                                        (gladiator.lives > 0 ? text("|" + gladiator.lives, BLUE) : empty()),
+                                        space(),
+                                        text(gladiator.name, nameColor)));
                         } else {
-                            ls.add(Component.join(JoinConfiguration.noSeparators(),
-                                                  text("" + gladiator.score, WHITE),
-                                                  Component.space(),
-                                                  text(HEART + hearts, RED),
-                                                  Component.space(),
-                                                  text(gladiator.name, nameColor)));
+                            ls.add(join(JoinConfiguration.noSeparators(),
+                                        text("" + gladiator.score, WHITE),
+                                        space(),
+                                        text(HEART + hearts, RED),
+                                        space(),
+                                        text(gladiator.name, nameColor)));
                         }
                     }
                 }
             }
         } else {
-            ls.add(text("Preparing for Event...", RED));
+            ls.add(text("Preparing Game...", RED));
         }
         if (tag.event) {
             ls.addAll(highscoreLines);
         }
         if (ls.isEmpty()) return;
-        event.add(this, Priority.DEFAULT, ls);
+        event.sidebar(PlayerHudPriority.DEFAULT, ls);
     }
 
-    boolean isAlive(Player p) {
+    protected boolean isAlive(Player p) {
         return !p.isDead() && (p.getGameMode() == GameMode.ADVENTURE || p.getGameMode() == GameMode.SURVIVAL);
     }
 
     @EventHandler
-    public void onEntityDamage(EntityDamageEvent event) {
+    private void onEntityDamage(EntityDamageEvent event) {
         if (tag.state != ArenaState.PLAY || tag.gameTime < WARM_UP_TICKS) {
             event.setCancelled(true);
             return;
@@ -1376,7 +1282,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return true;
     }
 
-    boolean giveItem(Player player, ItemStack item) {
+    protected boolean giveItem(Player player, ItemStack item) {
         Material material = item.getType();
         if (MaterialTags.HELMETS.isTagged(material)) {
             return setEquipment(player, EquipmentSlot.HEAD, item) || addInventory(player, item);
@@ -1397,7 +1303,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    ItemStack spawnArrows() {
+    protected ItemStack spawnArrows() {
         switch (random.nextInt(8)) {
         case 0: case 1: case 2:
             return enchant(new ItemStack(Material.ARROW, 64));
@@ -1415,7 +1321,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    ItemStack spawnWeapon() {
+    protected ItemStack spawnWeapon() {
         switch (random.nextInt(3)) {
         case 0: return enchant(new ItemStack(Material.BOW));
         case 1: return enchant(new ItemStack(Material.NETHERITE_SWORD));
@@ -1424,7 +1330,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    ItemStack spawnArmor() {
+    protected ItemStack spawnArmor() {
         switch (random.nextInt(9)) {
         case 0: return enchant(new ItemStack(Material.IRON_CHESTPLATE));
         case 1: return enchant(new ItemStack(Material.DIAMOND_CHESTPLATE));
@@ -1439,7 +1345,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    ItemStack spawnHelmet() {
+    protected ItemStack spawnHelmet() {
         switch (random.nextInt(3)) {
         case 0: return enchant(new ItemStack(Material.IRON_HELMET));
         case 1: return enchant(new ItemStack(Material.DIAMOND_HELMET));
@@ -1448,7 +1354,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    ItemStack spawnChestplate() {
+    protected ItemStack spawnChestplate() {
         switch (random.nextInt(3)) {
         case 0: return enchant(new ItemStack(Material.IRON_CHESTPLATE));
         case 1: return enchant(new ItemStack(Material.DIAMOND_CHESTPLATE));
@@ -1457,7 +1363,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    ItemStack spawnLeggings() {
+    protected ItemStack spawnLeggings() {
         switch (random.nextInt(3)) {
         case 0: return enchant(new ItemStack(Material.IRON_LEGGINGS));
         case 1: return enchant(new ItemStack(Material.DIAMOND_LEGGINGS));
@@ -1466,7 +1372,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    ItemStack spawnBoots() {
+    protected ItemStack spawnBoots() {
         switch (random.nextInt(3)) {
         case 0: return enchant(new ItemStack(Material.IRON_BOOTS));
         case 1: return enchant(new ItemStack(Material.DIAMOND_BOOTS));
@@ -1475,7 +1381,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    void giveBuffItem(Player player) {
+    protected void giveBuffItem(Player player) {
         switch (random.nextInt(3)) {
         case 0: case 1: {
             int appleAmount = 1;
@@ -1494,14 +1400,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    void giveDebuffItem(Player player) {
+    protected void giveDebuffItem(Player player) {
         int potionAmount = 1 + random.nextInt(2);
         for (int i = 0; i < potionAmount; i += 1) {
             giveItem(player, potion(false));
         }
     }
 
-    ItemStack potion(boolean buff) {
+    protected ItemStack potion(boolean buff) {
         final ItemStack item;
         final PotionType pt;
         if (buff) {
@@ -1546,7 +1452,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
+    private void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         if (tag.state == ArenaState.PLAY) {
             Bukkit.getScheduler().runTask(this, () -> player.setGameMode(GameMode.SPECTATOR));
@@ -1557,7 +1463,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
+    private void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         exit(player);
         if (tag.state == ArenaState.PLAY) {
@@ -1566,7 +1472,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onEntityRegainHealth(EntityRegainHealthEvent event) {
+    private void onEntityRegainHealth(EntityRegainHealthEvent event) {
         switch (event.getRegainReason()) {
         case SATIATED:
         case REGEN:
@@ -1577,7 +1483,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onPlayerDropItem(PlayerDropItemEvent event) {
+    private void onPlayerDropItem(PlayerDropItemEvent event) {
         if (event.getPlayer().isOp()) return;
         event.setCancelled(true);
     }
@@ -1642,7 +1548,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return result;
     }
 
-    World getWorld(String worldName) {
+    protected World getWorld(String worldName) {
         World result = Bukkit.getWorld("pvparena_" + worldName);
         if (result == null) result = loadWorld(worldName);
         result.setGameRule(GameRule.DO_MOB_SPAWNING, false);
@@ -1658,7 +1564,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
+    private void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
         if (tag.state != ArenaState.IDLE && world != null) {
             event.setSpawnLocation(spread(world.getSpawnLocation()));
         } else {
@@ -1679,7 +1585,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+    private void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Firework) {
             event.setCancelled(true);
             return;
@@ -1781,7 +1687,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+    private void onProjectileLaunch(ProjectileLaunchEvent event) {
         if (tag.state != ArenaState.PLAY || tag.gameTime < WARM_UP_TICKS) {
             event.setCancelled(true);
             return;
@@ -1801,19 +1707,19 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onPlayerItemDamage(PlayerItemDamageEvent event) {
+    private void onPlayerItemDamage(PlayerItemDamageEvent event) {
         if (tag.state != ArenaState.PLAY) return;
         if (!event.getPlayer().getWorld().equals(world)) return;
         event.setCancelled(true);
     }
 
     @EventHandler
-    public void onEntityExplode(EntityExplodeEvent event) {
+    private void onEntityExplode(EntityExplodeEvent event) {
         event.blockList().clear();
     }
 
     @EventHandler
-    public void onCreatureSpawn(CreatureSpawnEvent event) {
+    private void onCreatureSpawn(CreatureSpawnEvent event) {
         switch (event.getSpawnReason()) {
         case CUSTOM: return;
         default:
@@ -1823,7 +1729,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onLeavesDecay(LeavesDecayEvent event) {
+    private void onLeavesDecay(LeavesDecayEvent event) {
         event.setCancelled(true);
         Block block = event.getBlock();
         Leaves leaves = (Leaves) block.getBlockData();
@@ -1831,16 +1737,16 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         block.setBlockData(leaves, false);
     }
 
-    Location spread(Location location) {
+    protected Location spread(Location location) {
         double r = 2.0;
         return location.add(r * random.nextDouble() - r * random.nextDouble(), 0.0, r * random.nextDouble() - r * random.nextDouble());
     }
 
-    void teleport(Player player, Location location) {
+    protected void teleport(Player player, Location location) {
         player.teleport(spread(location), TeleportCause.PLUGIN);
     }
 
-    boolean toggleSpectatorMode(Player player) {
+    protected boolean toggleSpectatorMode(Player player) {
         UUID uuid = player.getUniqueId();
         if (spectators.contains(uuid)) {
             spectators.remove(uuid);
@@ -1854,29 +1760,29 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    AreasFile loadAreasFile() {
+    protected AreasFile loadAreasFile() {
         File folder = new File(world.getWorldFolder(), "areas");
         File file = new File(folder, "pvparena.json");
         return Json.load(file, AreasFile.class, AreasFile::new);
     }
 
     @EventHandler
-    void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
+    private void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
         event.setCancelled(true);
     }
 
     @EventHandler
-    void onHangingBreak(HangingBreakEvent event) {
+    private void onHangingBreak(HangingBreakEvent event) {
         event.setCancelled(true);
     }
 
     @EventHandler
-    void onHangingBreakByEntity(HangingBreakByEntityEvent event) {
+    private void onHangingBreakByEntity(HangingBreakByEntityEvent event) {
         event.setCancelled(true);
     }
 
     @EventHandler
-    void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+    private void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         Entity e = event.getRightClicked();
         if (e instanceof Hanging) {
             event.setCancelled(true);
@@ -1886,7 +1792,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event) {
+    private void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event) {
         Entity e = event.getRightClicked();
         if (e instanceof Hanging) {
             event.setCancelled(true);
@@ -1896,14 +1802,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    void onFoodLevelChange(FoodLevelChangeEvent event) {
+    private void onFoodLevelChange(FoodLevelChangeEvent event) {
         if (event.getFoodLevel() < event.getEntity().getFoodLevel()) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
-    void onPlayerTeam(PlayerTeamQuery query) {
+    private void onPlayerTeam(PlayerTeamQuery query) {
         if (!tag.useSquads || tag.squads == null) return;
         if (tag.state == ArenaState.IDLE) return;
         List<PlayerTeamQuery.Team> teams = new ArrayList<>();
@@ -1924,7 +1830,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    void onEntityTarget(EntityTargetEvent event) {
+    private void onEntityTarget(EntityTargetEvent event) {
         if (tag.state != ArenaState.PLAY || tag.gameTime < WARM_UP_TICKS) {
             event.setCancelled(true);
             return;
@@ -1941,5 +1847,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     protected void computeHighscore() {
         highscore = Highscore.of(tag.scores);
         highscoreLines = Highscore.sidebar(highscore, TrophyCategory.SWORD);
+    }
+
+    protected List<String> getWorldList() {
+        return new ArrayList<>(getConfig().getStringList("worlds"));
     }
 }

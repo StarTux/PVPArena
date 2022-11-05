@@ -81,18 +81,18 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Sidebar -->
-    <dependency>
-      <groupId>com.cavetale.sidebar</groupId>
-      <artifactId>sidebar</artifactId>
-      <version>0.1-SNAPSHOT</version>
-      <scope>provided</scope>
-    </dependency>
-
     <!-- Mytems -->
     <dependency>
       <groupId>com.cavetale.mytems</groupId>
       <artifactId>mytems</artifactId>
+      <version>0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Fam -->
+    <dependency>
+      <groupId>com.cavetale.fam</groupId>
+      <artifactId>fam</artifactId>
       <version>0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
@@ -105,22 +105,6 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- PlayerCache -->
-    <dependency>
-      <groupId>com.winthier.playercache</groupId>
-      <artifactId>playercache</artifactId>
-      <version>0.1-SNAPSHOT</version>
-      <scope>provided</scope>
-    </dependency>
-
-    <!-- AFK -->
-    <dependency>
-      <groupId>com.cavetale.afk</groupId>
-      <artifactId>afk</artifactId>
-      <version>0.1-SNAPSHOT</version>
-      <scope>provided</scope>
-    </dependency>
-
     <!-- Server -->
     <dependency>
       <groupId>com.cavetale.server</groupId>
@@ -129,10 +113,10 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Fam -->
+    <!-- AFK -->
     <dependency>
-      <groupId>com.cavetale.fam</groupId>
-      <artifactId>fam</artifactId>
+      <groupId>com.cavetale.afk</groupId>
+      <artifactId>afk</artifactId>
       <version>0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
