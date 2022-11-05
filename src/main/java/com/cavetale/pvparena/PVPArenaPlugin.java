@@ -331,7 +331,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     text((tag.useSquads ? teams(aliveCount) : players(aliveCount)) + " fighting", GRAY),
                 }));
         if (aliveCount == 0) {
-            getLogger().info("The game is a draw!");
+            log("Game Draw");
             for (Player target : world.getPlayers()) {
                 target.showTitle(Title.title(text("Draw", RED),
                                              text("Nobody survives", RED)));
@@ -405,8 +405,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
         }
         if (tag.gameTime == WARM_UP_TICKS) {
+            log("Warmup End");
             tag.warmUp = false;
             world.setPVP(true);
+            world.setGameRule(GameRule.FALL_DAMAGE, true);
             for (Player target : world.getPlayers()) {
                 target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.2f);
                 target.showTitle(Title.title(text("Fight!", DARK_RED),
@@ -479,9 +481,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (item != null) {
                 Item entity = world.dropItem(location, item);
                 if (entity != null) {
-                    getLogger().info(item.getType() + " dropped at " + location.getBlockX()
-                                     + "," + location.getBlockY()
-                                     + "," + location.getBlockZ());
+                    log(item.getType() + " dropped at " + location.getBlockX()
+                        + "," + location.getBlockY()
+                        + "," + location.getBlockZ());
                     entity.setPersistent(false);
                     removeEntities.add(entity);
                 }
@@ -491,7 +493,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     private void playerWinsTheGame(Gladiator winner) {
-        getLogger().info("Winner " + winner.getName());
+        log("Winner " + winner.getName());
         for (Player target : world.getPlayers()) {
             target.showTitle(Title.title(text(winner.getName(), GREEN),
                                          text("Wins this round!", GREEN)));
@@ -509,7 +511,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         for (int i = 0; i < names.length; i += 1) {
             names[i] = drawers.get(i).getName();
         }
-        getLogger().info("Draw: " + String.join(" ", names));
+        log("Draw: " + String.join(" ", names));
         for (Player target : world.getPlayers()) {
             target.showTitle(Title.title(text("Draw", RED),
                                          text(String.join(", ", names), RED)));
@@ -530,7 +532,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (gladiator.squad != winner.index) continue;
             gladiators.add(gladiator);
         }
-        getLogger().info("Team " + winner.name + " wins the game: " + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
+        log("Team " + winner.name + " Victory: " + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text(winner.name, winner.getTextColor()),
                                   text("Wins this round!", winner.getTextColor()));
         Component message = join(JoinConfiguration.noSeparators(),
@@ -562,10 +564,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 gladiators.add(gladiator);
             }
         }
-        getLogger().info("Teams "
-                         + winners.stream().map(s -> s.name).collect(Collectors.joining(" "))
-                         + " win the game: "
-                         + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
+        log("Teams "
+            + winners.stream().map(s -> s.name).collect(Collectors.joining(" "))
+            + " Victory: "
+            + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text("Draw!", GRAY),
                                   empty());
         Component message = join(JoinConfiguration.noSeparators(),
@@ -657,7 +659,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         if (tag.worlds.isEmpty()) throw new IllegalStateException("No worlds!");
         tag.worldName = tag.worlds.remove(tag.worlds.size() - 1);
-        getLogger().info("Picking world: " + tag.worldName);
+        log("Pick World: " + tag.worldName);
         world = getWorld(tag.worldName);
         areasFile = loadAreasFile();
     }
@@ -752,7 +754,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 gladiator.squad = theSquad.index;
                 theSquad.memberCount += 1;
                 TitlePlugin.getInstance().setColor(target, theSquad.getTextColor());
-                getLogger().info(target.getName() + " in team " + gladiator.squad);
+                log(target.getName() + " in team " + gladiator.squad);
             }
             if (tag.event) {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + target.getName());
@@ -777,7 +779,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         log("State PLAY");
         tag.state = ArenaState.PLAY;
+        log("Warmup Start");
         world.setPVP(false);
+        world.setGameRule(GameRule.FALL_DAMAGE, false);
         tag.gameTime = 0;
         tag.suddenDeath = false;
         tag.warmUp = true;
@@ -951,7 +955,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     tag.squads.get(gladiator2.squad).score += 1;
                 }
             }
-            getLogger().info(killer.getName() + " killed " + player.getName());
+            log(killer.getName() + " killed " + player.getName());
         } else {
             if (tag.winRule == WinRule.MOLE && Objects.equals(gladiator.uuid, tag.moleUuid)) {
                 player.sendMessage(text("You are no longer the mole", RED));
@@ -1489,7 +1493,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     private void copyFileStructure(File source, File target) {
-        getLogger().info("copyFileStructure " + source + " => " + target);
+        log("copyFileStructure " + source + " => " + target);
         try {
             ArrayList<String> ignore = new ArrayList<>(Arrays.asList("uid.dat", "session.lock"));
             if (!ignore.contains(source.getName())) {
@@ -1523,14 +1527,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     private void copyWorld(String worldName) {
-        getLogger().info("copyWorld " + worldName);
+        log("copyWorld " + worldName);
         File source = new File(new File(getDataFolder(), "maps"), worldName);
         File dest = new File(Bukkit.getWorldContainer(), "pvparena_" + worldName);
         copyFileStructure(source, dest);
     }
 
     private World loadWorld(String worldName) {
-        getLogger().info("loadWorld " + worldName);
+        log("loadWorld " + worldName);
         File folder = new File(Bukkit.getWorldContainer(), "pvparena_" + worldName);
         if (!folder.isDirectory()) {
             copyWorld(worldName);

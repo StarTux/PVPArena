@@ -40,6 +40,9 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
                         CommandArgCompleter.REPEAT)
             .description("Set the next world(s)")
             .senderCaller(this::nextWorld);
+        rootNode.addChild("clearworlds").denyTabCompletion()
+            .description("Clear next worlds")
+            .senderCaller(this::clearWorlds);
         rootNode.addChild("skip").denyTabCompletion()
             .description("Skip this world for the next game")
             .senderCaller(this::skip);
@@ -108,6 +111,12 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
         }
         sender.sendMessage(text("Worlds coming up: " + plugin.tag.worlds, YELLOW));
         return true;
+    }
+
+    private void clearWorlds(CommandSender sender) {
+        plugin.tag.worlds = new ArrayList<>();
+        plugin.saveTag();
+        sender.sendMessage(text("Next worlds cleared", YELLOW));
     }
 
     private void skip(CommandSender sender) {
