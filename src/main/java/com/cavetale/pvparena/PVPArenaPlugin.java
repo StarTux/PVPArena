@@ -714,7 +714,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 });
             Collections.shuffle(squadColors);
             int squadCount;
-            squadCount = eligible.size() < 12 ? 2 : 3;
+            squadCount = 2;//eligible.size() < 12 ? 2 : 3;
             squadCount = Math.min(squadCount, squadColors.size());
             if (areasFile.getAreas().getSpawn().size() < squadCount) {
                 logSevere("Fewer spawn areas than squads: " + areasFile.getAreas().getSpawn().size() + "/" + squadCount);
@@ -1822,7 +1822,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 .Team("pvparena:" + squad.name.toLowerCase(),
                       text(squad.name, squad.getTextColor()));
             teams.add(team);
-
         }
         for (Gladiator gladiator : tag.gladiators.values()) {
             if (gladiator.squad < 0 || gladiator.squad >= teams.size()) continue;
