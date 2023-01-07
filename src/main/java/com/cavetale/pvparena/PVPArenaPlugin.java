@@ -47,6 +47,7 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
+import org.bukkit.WorldBorder;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.attribute.Attribute;
@@ -677,9 +678,14 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         List<SpecialRule> rules = new ArrayList<>(Arrays.asList(SpecialRule.values()));
         rules.remove(SpecialRule.NONE);
         tag.specialRule = rules.get(random.nextInt(rules.size()));
+        final WorldBorder originalWorldBorder = world.getWorldBorder();
+        final WorldBorder fakeWorldBorder = Bukkit.createWorldBorder();
+        fakeWorldBorder.setCenter(originalWorldBorder.getCenter());
+        fakeWorldBorder.setSize(fakeWorldBorder.getMaxSize());
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!player.getWorld().equals(world)) {
                 teleport(player, world.getSpawnLocation());
+                player.setWorldBorder(fakeWorldBorder);
             }
             if (!spectators.contains(player.getUniqueId()) && AFKPlugin.isAfk(player)) {
                 spectators.add(player.getUniqueId());
@@ -714,7 +720,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 });
             Collections.shuffle(squadColors);
             int squadCount;
-            squadCount = 2;//eligible.size() < 12 ? 2 : 3;
+            squadCount = 2; //eligible.size() < 12 ? 2 : 3;
             squadCount = Math.min(squadCount, squadColors.size());
             if (areasFile.getAreas().getSpawn().size() < squadCount) {
                 logSevere("Fewer spawn areas than squads: " + areasFile.getAreas().getSpawn().size() + "/" + squadCount);
