@@ -1227,8 +1227,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             item.addUnsafeEnchantment(Enchantment.IMPALING, Enchantment.IMPALING.getMaxLevel());
         } else if (item.getType() == Material.CROSSBOW) {
             item.addUnsafeEnchantment(Enchantment.QUICK_CHARGE, Enchantment.QUICK_CHARGE.getMaxLevel());
+            item.addUnsafeEnchantment(Enchantment.MULTISHOT, Enchantment.MULTISHOT.getMaxLevel());
+            item.addUnsafeEnchantment(Enchantment.PIERCING, Enchantment.PIERCING.getMaxLevel());
+        } else if (item.getType() == Material.BOW) {
+            item.addUnsafeEnchantment(Enchantment.ARROW_INFINITE, Enchantment.ARROW_INFINITE.getMaxLevel());
         }
-        do {
+        for (int i = 0; i < 10; i += 1) {
             List<Enchantment> list = new ArrayList<>();
             list.addAll(List.of(Enchantment.values()));
             list.removeAll(FORBIDDEN_ENCHANTMENTS);
@@ -1237,7 +1241,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             Collections.shuffle(list);
             Enchantment enchantment = list.get(0);
             item.addUnsafeEnchantment(enchantment, enchantment.getMaxLevel());
-        } while (random.nextInt(4) > 0);
+        }
         return item;
     }
 
@@ -1332,10 +1336,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     protected ItemStack spawnWeapon() {
-        switch (random.nextInt(3)) {
+        switch (random.nextInt(4)) {
         case 0: return enchant(new ItemStack(Material.BOW));
         case 1: return enchant(new ItemStack(Material.NETHERITE_SWORD));
         case 2: return enchant(new ItemStack(Material.NETHERITE_AXE));
+        case 3: return enchant(new ItemStack(Material.CROSSBOW));
         default: throw new IllegalStateException();
         }
     }
