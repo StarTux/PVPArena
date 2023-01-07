@@ -701,7 +701,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         List<Player> eligible = getEligible();
         Collections.shuffle(eligible);
         tag.moleUuid = tag.winRule == WinRule.MOLE ? eligible.get(random.nextInt(eligible.size())).getUniqueId() : null;
-        tag.useSquads = eligible.size() >= 2;
+        tag.useSquads = random.nextInt(eligible.size()) > 0;
         if (tag.useSquads) {
             List<Integer> spawnIndexes = new ArrayList<>();
             for (int i = 0; i < areasFile.getAreas().getSpawn().size(); i += 1) {
