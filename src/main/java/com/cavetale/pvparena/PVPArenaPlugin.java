@@ -710,15 +710,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (spawnIndexes.isEmpty()) spawnIndexes = Arrays.asList(0);
             Collections.shuffle(spawnIndexes);
             List<NamedTextColor> squadColors = Arrays.asList(new NamedTextColor[] {
-                    GOLD,
+                    RED,
                     BLUE,
+                    GOLD,
                     GREEN,
                     AQUA,
-                    RED,
                     LIGHT_PURPLE,
                     YELLOW,
                 });
-            Collections.shuffle(squadColors);
+            //Collections.shuffle(squadColors);
             int squadCount;
             squadCount = 2; //eligible.size() < 12 ? 2 : 3;
             squadCount = Math.min(squadCount, squadColors.size());
