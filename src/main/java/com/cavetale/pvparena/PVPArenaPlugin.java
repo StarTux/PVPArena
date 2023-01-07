@@ -1186,7 +1186,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             ls.addAll(highscoreLines);
         }
         if (ls.isEmpty()) return;
-        event.sidebar(PlayerHudPriority.DEFAULT, ls);
+        event.sidebar(PlayerHudPriority.HIGHEST, ls);
     }
 
     protected boolean isAlive(Player p) {
