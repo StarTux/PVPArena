@@ -3,6 +3,9 @@ package com.cavetale.pvparena;
 import com.cavetale.afk.AFKPlugin;
 import com.cavetale.core.event.hud.PlayerHudEvent;
 import com.cavetale.core.event.hud.PlayerHudPriority;
+import com.cavetale.core.event.minigame.MinigameFlag;
+import com.cavetale.core.event.minigame.MinigameMatchCompleteEvent;
+import com.cavetale.core.event.minigame.MinigameMatchType;
 import com.cavetale.core.event.player.PlayerTeamQuery;
 import com.cavetale.fam.trophy.Highscore;
 import com.cavetale.mytems.Mytems;
@@ -140,6 +143,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                                                text("e", color(0xff8955), BOLD),
                                                text("n", color(0xffbd7f), BOLD),
                                                text("a", color(0xfff0a9), BOLD));
+    private List<UUID> winners = List.of();
 
     @Override
     public void onEnable() {
@@ -369,28 +373,28 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (tag.useSquads) {
                 Collections.sort(aliveSquads, (b, a) -> Integer.compare(a.score, b.score));
                 int maxScore = aliveSquads.get(0).score;
-                List<Squad> winners = new ArrayList<>();
+                List<Squad> winnerSquads = new ArrayList<>();
                 for (Squad squad : aliveSquads) {
                     if (squad.score < maxScore) break;
-                    winners.add(squad);
+                    winnerSquads.add(squad);
                 }
-                if (winners.size() == 1) {
-                    squadWinsTheGame(winners.get(0));
+                if (winnerSquads.size() == 1) {
+                    squadWinsTheGame(winnerSquads.get(0));
                 } else {
-                    squadsDraw(winners);
+                    squadsDraw(winnerSquads);
                 }
             } else {
                 Collections.sort(aliveGladiators, (b, a) -> Integer.compare(a.score, b.score));
                 int maxScore = aliveGladiators.get(0).score;
-                List<Gladiator> winners = new ArrayList<>();
+                List<Gladiator> winnerPlayers = new ArrayList<>();
                 for (Gladiator gladiator : aliveGladiators) {
                     if (gladiator.score < maxScore) break;
-                    winners.add(gladiator);
+                    winnerPlayers.add(gladiator);
                 }
-                if (winners.size() == 1) {
-                    playerWinsTheGame(winners.get(0));
+                if (winnerPlayers.size() == 1) {
+                    playerWinsTheGame(winnerPlayers.get(0));
                 } else {
-                    playersDraw(winners);
+                    playersDraw(winnerPlayers);
                 }
             }
             return;
@@ -493,17 +497,18 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         removeEntities.removeIf(e -> !e.isValid());
     }
 
-    private void playerWinsTheGame(Gladiator winner) {
-        log("Winner " + winner.getName());
+    private void playerWinsTheGame(final Gladiator winnerPlayer) {
+        log("Winner " + winnerPlayer.getName());
         for (Player target : world.getPlayers()) {
-            target.showTitle(Title.title(text(winner.getName(), GREEN),
+            target.showTitle(Title.title(text(winnerPlayer.getName(), GREEN),
                                          text("Wins this round!", GREEN)));
-            target.sendMessage(text(winner.getName() + " wins this round!", GREEN));
+            target.sendMessage(text(winnerPlayer.getName() + " wins this round!", GREEN));
             target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
         }
         if (tag.event) {
-            rewardEventWinner(winner);
+            rewardEventWinner(winnerPlayer);
         }
+        this.winners = List.of(winnerPlayer.uuid);
         endGame();
     }
 
@@ -524,14 +529,17 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 rewardEventWinner(drawer);
             }
         }
+        this.winners = List.of();
         endGame();
     }
 
     private void squadWinsTheGame(Squad winner) {
         List<Gladiator> gladiators = new ArrayList<>();
+        this.winners = new ArrayList<>();
         for (Gladiator gladiator : tag.gladiators.values()) {
             if (gladiator.squad != winner.index) continue;
             gladiators.add(gladiator);
+            this.winners.add(gladiator.uuid);
         }
         log("Team " + winner.name + " Victory: " + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text(winner.name, winner.getTextColor()),
@@ -557,23 +565,23 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         endGame();
     }
 
-    protected void squadsDraw(List<Squad> winners) {
+    protected void squadsDraw(final List<Squad> winnerSquads) {
         List<Gladiator> gladiators = new ArrayList<>();
-        for (Squad winner : winners) {
+        for (Squad winner : winnerSquads) {
             for (Gladiator gladiator : tag.gladiators.values()) {
                 if (gladiator.squad != winner.index) continue;
                 gladiators.add(gladiator);
             }
         }
         log("Teams "
-            + winners.stream().map(s -> s.name).collect(Collectors.joining(" "))
+            + winnerSquads.stream().map(s -> s.name).collect(Collectors.joining(" "))
             + " Victory: "
             + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text("Draw!", GRAY),
                                   empty());
         Component message = join(JoinConfiguration.noSeparators(),
                                  join(JoinConfiguration.separator(text(", ", GRAY)),
-                                      winners.stream()
+                                      winnerSquads.stream()
                                       .map(sq -> text(sq.name, sq.getTextColor()))
                                       .collect(Collectors.toList())),
                                  text(" draw this round: ", GRAY),
@@ -588,6 +596,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.sendMessage("");
             target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
         }
+        this.winners = List.of();
         endGame();
     }
 
@@ -819,6 +828,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         log("State END");
         tag.state = ArenaState.END;
         saveTag();
+        do {
+            MinigameMatchCompleteEvent event = new MinigameMatchCompleteEvent(MinigameMatchType.PVP_ARENA);
+            if (tag.event) event.addFlags(MinigameFlag.EVENT);
+            for (Gladiator gladiator : tag.gladiators.values()) {
+                event.addPlayerUuid(gladiator.uuid);
+            }
+            event.addWinnerUuids(winners);
+            event.callEvent();
+        } while (false);
     }
 
     protected void cleanUpGame() {
