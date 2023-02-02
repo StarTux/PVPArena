@@ -205,7 +205,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     private void tick() {
-        if (getEligible().isEmpty()) {
+        if (tag.state != ArenaState.IDLE && getEligible().isEmpty()) {
             ServerPlugin.getInstance().setServerSidebarLines(null);
             log("Eligible is empty");
             setIdle();
