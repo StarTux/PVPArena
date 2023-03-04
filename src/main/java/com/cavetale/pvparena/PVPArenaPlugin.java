@@ -362,7 +362,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                                                  times(Duration.ZERO,
                                                        Duration.ofSeconds(1),
                                                        Duration.ZERO)));
-                    target.playSound(target.getLocation(), Sound.BLOCK_BELL_USE, SoundCategory.MASTER, 0.2f, 0.7f);
+                    target.playSound(target.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_7, SoundCategory.MASTER, 1.0f, 1.0f);
                 }
                 tag.suddenDeath = true;
             }
@@ -415,14 +415,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             world.setPVP(true);
             world.setGameRule(GameRule.FALL_DAMAGE, true);
             for (Player target : world.getPlayers()) {
-                target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.2f);
+                target.playSound(target.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_2, 1.0f, 1.0f);
                 target.showTitle(Title.title(text("Fight!", DARK_RED),
                                              text(tag.specialRule.displayName, RED),
                                              times(Duration.ZERO,
                                                    Duration.ofSeconds(1),
                                                    Duration.ZERO)));
                 target.sendMessage(text("Fight! " + tag.specialRule.displayName, DARK_RED));
-                target.playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, SoundCategory.MASTER, 0.1f, 1.2f);
             }
         }
         if (tag.suddenDeath && tag.gameTime % 40 == 0) {
@@ -503,7 +502,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.showTitle(Title.title(text(winnerPlayer.getName(), GREEN),
                                          text("Wins this round!", GREEN)));
             target.sendMessage(text(winnerPlayer.getName() + " wins this round!", GREEN));
-            target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
+            target.playSound(target.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_1, SoundCategory.MASTER, 1.0f, 1.0f);
         }
         if (tag.event) {
             rewardEventWinner(winnerPlayer);
@@ -522,7 +521,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.showTitle(Title.title(text("Draw", RED),
                                          text(String.join(", ", names), RED)));
             target.sendMessage(text("The game is a draw between " + String.join(", ", names), GREEN));
-            target.playSound(target.getLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, SoundCategory.MASTER, 0.1f, 2.0f);
+            target.playSound(target.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_5, SoundCategory.MASTER, 1.0f, 1.5f);
         }
         if (tag.event) {
             for (Gladiator drawer : drawers) {
@@ -555,7 +554,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.showTitle(title);
             target.sendMessage(message);
             target.sendMessage("");
-            target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
+            target.playSound(target.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_1, SoundCategory.MASTER, 1.0f, 1.0f);
         }
         if (tag.event) {
             for (Gladiator gladiator : gladiators) {
@@ -594,7 +593,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.showTitle(title);
             target.sendMessage(message);
             target.sendMessage("");
-            target.playSound(target.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 0.1f, 2.0f);
+            target.playSound(target.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_5, SoundCategory.MASTER, 1.0f, 1.5f);
         }
         this.winners = List.of();
         endGame();
