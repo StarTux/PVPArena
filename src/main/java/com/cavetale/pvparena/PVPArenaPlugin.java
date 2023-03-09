@@ -709,7 +709,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         List<Player> eligible = getEligible();
         Collections.shuffle(eligible);
         tag.moleUuid = tag.winRule == WinRule.MOLE ? eligible.get(random.nextInt(eligible.size())).getUniqueId() : null;
-        tag.useSquads = random.nextInt(eligible.size()) > 0;
+        tag.useSquads = switch (eligible.size()) {
+        case 1, 2, 3, 5 -> false;
+        default -> random.nextInt(eligible.size()) > 0;
+        };
         if (tag.useSquads) {
             List<Integer> spawnIndexes = new ArrayList<>();
             for (int i = 0; i < areasFile.getAreas().getSpawn().size(); i += 1) {
@@ -726,14 +729,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     LIGHT_PURPLE,
                     YELLOW,
                 });
-            //Collections.shuffle(squadColors);
-            int squadCount;
-            squadCount = 2; //eligible.size() < 12 ? 2 : 3;
-            squadCount = Math.min(squadCount, squadColors.size());
-            if (areasFile.getAreas().getSpawn().size() < squadCount) {
-                logSevere("Fewer spawn areas than squads: " + areasFile.getAreas().getSpawn().size() + "/" + squadCount);
-                squadCount = Math.min(squadCount, areasFile.getAreas().getSpawn().size());
-            }
+            final int spawns = areasFile.getAreas().getSpawn().size();
+            final int squadCount = Math.min(spawns, switch (eligible.size()) {
+                case 9, 15 -> 3;
+                default -> 2;
+                });
             tag.squads = new ArrayList<>();
             for (int i = 0; i < squadCount; i += 1) {
                 Squad squad = new Squad();
