@@ -20,21 +20,28 @@ commands:
     usage: |-
       /spec - Toggle spectator mode
 
+  pvparena:
+    aliases: []
+    description: Player command
+    permission: pvparena.pvparena
+    usage: |-
+      /pvparena vote
+
   pvpadmin:
     aliases: [pvpadm]
     description: Admin Command
     permission: pvparena.admin
     usage: |-
-      /pvparena start
-      /pvparena stop
-      /pvparena save
-      /pvparena load
-      /pvparena rule <rule> - Enable special rule
-      /pvparena nextworld <worldname> - Load any world next
-      /pvparena skip - Force skip current world next round
-      /pvparena areas - Dump current areas file
-      /pvparena event - Toggle event mode
-      /pvparena score - Score commands
+      /pvpadm start
+      /pvpadm stop
+      /pvpadm save
+      /pvpadm load
+      /pvpadm rule <rule> - Enable special rule
+      /pvpadm nextworld <worldname> - Load any world next
+      /pvpadm skip - Force skip current world next round
+      /pvpadm areas - Dump current areas file
+      /pvpadm event - Toggle event mode
+      /pvpadm score - Score commands
 
 permissions:
 

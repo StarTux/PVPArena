@@ -6,9 +6,8 @@ import com.cavetale.core.command.CommandNode;
 import com.cavetale.core.playercache.PlayerCache;
 import com.cavetale.fam.trophy.Highscore;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
-import java.util.ArrayList;
-import java.util.List;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 
@@ -19,7 +18,10 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
 
     @Override
     protected void onEnable() {
-        rootNode.addChild("start").denyTabCompletion()
+        rootNode.addChild("start").arguments("<map> [win] [special]")
+            .completers(CommandArgCompleter.supplyList(() -> PVPArenaPlugin.instance.pvpArenaMaps.getWorldNames()),
+                        CommandArgCompleter.enumLowerList(WinRule.class),
+                        CommandArgCompleter.enumLowerList(SpecialRule.class))
             .description("Start a game")
             .senderCaller(this::start);
         rootNode.addChild("stop").denyTabCompletion()
@@ -35,17 +37,6 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
             .completers(CommandArgCompleter.enumLowerList(SpecialRule.class))
             .description("Set the current rule")
             .senderCaller(this::rule);
-        rootNode.addChild("nextworld").arguments("<world>...")
-            .completers(CommandArgCompleter.supplyList(() -> plugin.getWorldList()),
-                        CommandArgCompleter.REPEAT)
-            .description("Set the next world(s)")
-            .senderCaller(this::nextWorld);
-        rootNode.addChild("clearworlds").denyTabCompletion()
-            .description("Clear next worlds")
-            .senderCaller(this::clearWorlds);
-        rootNode.addChild("skip").denyTabCompletion()
-            .description("Skip this world for the next game")
-            .senderCaller(this::skip);
         rootNode.addChild("areas").denyTabCompletion()
             .description("Print areas info")
             .senderCaller(this::areas);
@@ -53,6 +44,14 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
             .completers(CommandArgCompleter.BOOLEAN)
             .description("Set event mode")
             .senderCaller(this::event);
+        rootNode.addChild("pause").arguments("<value>")
+            .completers(CommandArgCompleter.BOOLEAN)
+            .description("Set pause mode")
+            .senderCaller(this::pause);
+        rootNode.addChild("givekit").arguments("<player>")
+            .completers(CommandArgCompleter.NULL)
+            .description("Give a kit item")
+            .senderCaller(this::givekit);
         rootNode.addChild("debug").arguments("<value>")
             .completers(CommandArgCompleter.BOOLEAN)
             .description("Set debug mode")
@@ -73,10 +72,19 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
             .senderCaller(this::scoreReward);
     }
 
-    private void start(CommandSender sender) {
-        plugin.cleanUpGame();
-        plugin.startGame();
+    private boolean start(CommandSender sender, String[] args) {
+        if (args.length != 1 && args.length != 3) return false;
+        String worldName = args[0];
+        if (args.length == 1) {
+            plugin.startGame(worldName);
+            sender.sendMessage(text("Game started!", YELLOW));
+            return true;
+        }
+        WinRule winRule = CommandArgCompleter.requireEnum(WinRule.class, args[1]);
+        SpecialRule specialRule = CommandArgCompleter.requireEnum(SpecialRule.class, args[2]);
+        plugin.startGame(worldName, winRule, specialRule);
         sender.sendMessage(text("Game started!", YELLOW));
+        return true;
     }
 
     private void stop(CommandSender sender) {
@@ -103,27 +111,6 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
         return true;
     }
 
-    private boolean nextWorld(CommandSender sender, String[] args) {
-        if (args.length > 0) {
-            plugin.tag.worlds = new ArrayList<>(List.of(args));
-            plugin.tag.worldUsed = 999;
-            plugin.saveTag();
-        }
-        sender.sendMessage(text("Worlds coming up: " + plugin.tag.worlds, YELLOW));
-        return true;
-    }
-
-    private void clearWorlds(CommandSender sender) {
-        plugin.tag.worlds = new ArrayList<>();
-        plugin.saveTag();
-        sender.sendMessage(text("Next worlds cleared", YELLOW));
-    }
-
-    private void skip(CommandSender sender) {
-        plugin.tag.worldUsed = 999;
-        sender.sendMessage(text("New world next round!", YELLOW));
-    }
-
     private void areas(CommandSender sender) {
         sender.sendMessage(text("AreasFile: " + Json.serialize(plugin.areasFile), AQUA));
     }
@@ -135,6 +122,24 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
             plugin.saveTag();
         }
         sender.sendMessage(text("Event Mode: " + plugin.tag.event, YELLOW));
+        return true;
+    }
+
+    private boolean pause(CommandSender sender, String[] args) {
+        if (args.length > 1) return false;
+        if (args.length >= 1) {
+            plugin.tag.pause = CommandArgCompleter.requireBoolean(args[0]);
+            plugin.saveTag();
+        }
+        sender.sendMessage(text("Pause Mode: " + plugin.tag.pause, YELLOW));
+        return true;
+    }
+
+    private boolean givekit(CommandSender sender, String[] args) {
+        if (args.length != 1) return false;
+        Player target = CommandArgCompleter.requirePlayer(args[0]);
+        target.getInventory().addItem(KitItem.spawnKitItem());
+        sender.sendMessage(text("Kit given to " + target.getName(), YELLOW));
         return true;
     }
 

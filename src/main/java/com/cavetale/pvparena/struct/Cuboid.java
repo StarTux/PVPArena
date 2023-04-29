@@ -76,4 +76,11 @@ public final class Cuboid {
         z = Math.min(z, max.z);
         return new Vec3i(x, y, z);
     }
+
+    /**
+     * Grow in all directions.
+     */
+    public Cuboid outset(int dx, int dy, int dz) {
+        return new Cuboid(min.add(-dx, -dy, -dz), max.add(dx, dy, dz));
+    }
 }

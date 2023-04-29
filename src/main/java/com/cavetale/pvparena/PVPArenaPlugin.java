@@ -14,7 +14,6 @@ import com.cavetale.pvparena.struct.AreasFile;
 import com.cavetale.pvparena.struct.Cuboid;
 import com.cavetale.pvparena.struct.Vec3i;
 import com.cavetale.server.ServerPlugin;
-import com.destroystokyo.paper.MaterialTags;
 import com.winthier.title.TitlePlugin;
 import java.io.File;
 import java.io.FileInputStream;
@@ -33,7 +32,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
@@ -46,7 +44,6 @@ import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
@@ -57,14 +54,12 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.Leaves;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Hanging;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Tameable;
@@ -76,6 +71,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.LeavesDecayEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
@@ -89,20 +85,18 @@ import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.potion.PotionType;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
+import static com.cavetale.core.font.Unicode.tiny;
 import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.space;
@@ -115,6 +109,7 @@ import static net.kyori.adventure.text.format.TextDecoration.*;
 import static net.kyori.adventure.title.Title.Times.times;
 
 public final class PVPArenaPlugin extends JavaPlugin implements Listener {
+    protected static PVPArenaPlugin instance;
     public static final String PERM_PLAYER = "pvparena.pvparena";
     public static final String PERM_ADMIN = "pvparena.admin";
     public static final String PERM_STREAMER = "group.streamer";
@@ -144,22 +139,31 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                                                text("n", color(0xffbd7f), BOLD),
                                                text("a", color(0xfff0a9), BOLD));
     private List<UUID> winners = List.of();
+    protected final PVPArenaMaps pvpArenaMaps = new PVPArenaMaps(this);
 
     @Override
     public void onEnable() {
+        instance = this;
         reloadConfig();
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getScheduler().runTaskTimer(this, this::tick, 1, 1);
         getCommand("spectator").setExecutor(new SpectatorCommand(this));
-        loadTag();
-        if (tag.worldName != null) {
-            world = getWorld(tag.worldName);
-            areasFile = loadAreasFile();
-        }
         lobbyWorld = Bukkit.getWorlds().get(0);
         bossBar = BossBar.bossBar(text("PVPArena", RED), 1.0f, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
         new PVPAdminCommand(this).enable();
+        new PVPArenaCommand(this).enable();
+        pvpArenaMaps.load(getConfig().getStringList("worlds"));
+        loadTag();
+        if (tag.worldName != null) {
+            world = Bukkit.getWorld(tag.worldName);
+            if (world != null) {
+                areasFile = loadAreasFile();
+            } else {
+                world = null;
+                setIdle();
+            }
+        }
         for (Player player : Bukkit.getOnlinePlayers()) {
             enter(player);
         }
@@ -173,6 +177,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         cleanUpGame();
         ServerPlugin.getInstance().setServerSidebarLines(null);
+        if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
     }
 
     protected void enter(Player player) {
@@ -226,13 +231,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (tag.state == ArenaState.IDLE) return;
         log("State IDLE");
         tag.state = ArenaState.IDLE;
-        tag.idleTime = 0;
         for (Player target : Bukkit.getOnlinePlayers()) {
             if (!target.getWorld().equals(lobbyWorld)) {
                 teleport(target, lobbyWorld.getSpawnLocation());
             }
             resetPlayer(target);
         }
+        deleteWorld();
     }
 
     private static float clampProgress(float in) {
@@ -249,7 +254,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     private void tickIdle() {
         if (tag.event) {
-            tag.idleTime = 0;
             bossBar.name(text("Preparing for Event...", RED));
             bossBar.progress(0.0f);
             ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
@@ -258,26 +262,26 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     }));
             return;
         }
-        int eligible = getEligible().size();
-        bossBar.name(textOfChildren(text("Waiting for Players: ", GRAY),
-                                    text(eligible, GREEN)));
-        bossBar.progress(clampProgress((float) tag.idleTime / (float) IDLE_TICKS));
-        if (eligible >= 1) {
-            ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
-                        text("/pvparena", YELLOW),
-                        text(players(eligible) + " waiting", GRAY),
-                    }));
-        } else {
+        if (tag.pause) {
+            if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
+            bossBar.name(text("Game Paused", RED));
+            bossBar.progress(0.0f);
             ServerPlugin.getInstance().setServerSidebarLines(null);
-        }
-        if (eligible < 2) {
-            tag.idleTime = 0;
             return;
         }
-        if (tag.idleTime > IDLE_TICKS) {
-            startGame();
+        int eligible = getEligible().size();
+        if (eligible < 2) {
+            if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
+            bossBar.name(text("Waiting for more players", RED));
+            bossBar.progress(0.0f);
+            ServerPlugin.getInstance().setServerSidebarLines(null);
+            return;
         }
-        tag.idleTime += 1;
+        if (!pvpArenaMaps.isVoteActive()) {
+            pvpArenaMaps.startVote();
+        }
+        bossBar.name(textOfChildren(text("Get Ready: ", GRAY), text("/pvparena vote", YELLOW)));
+        bossBar.progress(pvpArenaMaps.voteProgress());
     }
 
     private void tickPlay() {
@@ -473,26 +477,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 zombieCount += 1;
             }
         }
-        if (!tag.warmUp && (tag.gameTime % 200) == 0) {
-            Location location = findSpawnLocation();
-            ItemStack item;
-            switch (random.nextInt(3)) {
-            case 0: item = spawnWeapon(); break;
-            case 1: item = spawnArmor(); break;
-            case 2: item = spawnArrows(); break;
-            default: item = null;
-            }
-            if (item != null) {
-                Item entity = world.dropItem(location, item);
-                if (entity != null) {
-                    log(item.getType() + " dropped at " + location.getBlockX()
-                        + "," + location.getBlockY()
-                        + "," + location.getBlockZ());
-                    entity.setPersistent(false);
-                    removeEntities.add(entity);
-                }
-            }
-        }
         removeEntities.removeIf(e -> !e.isValid());
     }
 
@@ -605,12 +589,18 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
     }
 
-    void tickPlayer(Gladiator gladiator, Player player) {
+    private void tickPlayer(Gladiator gladiator, Player player) {
         if (!gladiator.gameOver && gladiator.dead) {
             long now = System.currentTimeMillis();
             if (now > gladiator.respawnCooldown) {
                 gladiator.dead = false;
                 gladiator.invulnerable = now + 1000L;
+                if (gladiator.kit != null) gladiator.kit.onRespawn(player);
+                if (tag.specialRule == SpecialRule.KIT_ON_DEATH) {
+                    if (!player.getInventory().contains(KitItem.spawnKitItem())) {
+                        player.getInventory().addItem(KitItem.spawnKitItem());
+                    }
+                }
                 respawn(player);
             } else {
                 int seconds = (int) ((gladiator.respawnCooldown - now) / 1000L);
@@ -626,6 +616,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         } else {
             gladiator.health = player.getHealth();
         }
+        if (tag.useSquads && tag.gameTime < WARM_UP_TICKS) {
+            Squad squad = tag.squads.get(gladiator.squad);
+            Cuboid cuboid = areasFile.getAreas().getSpawn().get(squad.spawn);
+            if (!cuboid.outset(4, 4, 4).contains(player.getLocation())) {
+                player.teleport(findSpawnLocation(player));
+                player.sendMessage(text("Please wait until PvP starts!", RED));
+                player.playSound(player.getEyeLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 1.0f, 1.0f);
+            }
+        }
     }
 
     private void tickEnd() {
@@ -635,15 +634,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 }));
         tag.endTime += 1;
         if (tag.endTime > (30 * 20)) {
-            if (getEligible().size() < 2) {
-                setIdle();
-            } else {
-                startGame();
-            }
+            setIdle();
         }
     }
 
-    @Nullable Gladiator getGladiator(Player player) {
+    // Nullable
+    private Gladiator getGladiator(Player player) {
         return tag.gladiators.get(player.getUniqueId());
     }
 
@@ -659,33 +655,24 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return gladiator != null ? gladiator.score : 0;
     }
 
-    private void ensureWorldIsLoaded() {
-        if (tag.worldName != null && tag.worldUsed < 1) return;
-        tag.worldUsed = 0;
-        if (tag.worlds.isEmpty()) {
-            tag.worlds = new ArrayList<>(getConfig().getStringList("worlds"));
-            Collections.shuffle(tag.worlds);
-        }
-        if (tag.worlds.isEmpty()) throw new IllegalStateException("No worlds!");
-        tag.worldName = tag.worlds.remove(tag.worlds.size() - 1);
-        log("Pick World: " + tag.worldName);
-        world = getWorld(tag.worldName);
-        areasFile = loadAreasFile();
-    }
-
-    protected void startGame() {
-        ensureWorldIsLoaded();
+    protected void startGame(String worldName) {
         List<WinRule> wins = new ArrayList<>();
-        int total = 0;
         for (WinRule win : WinRule.values()) {
-            for (int i = 0; i < win.weight; i += 1) {
-                wins.add(win);
-            }
+            for (int i = 0; i < win.weight; i += 1) wins.add(win);
         }
-        tag.winRule = wins.get(random.nextInt(wins.size()));
+        final WinRule winRule = wins.get(random.nextInt(wins.size()));
         List<SpecialRule> rules = new ArrayList<>(Arrays.asList(SpecialRule.values()));
         rules.remove(SpecialRule.NONE);
-        tag.specialRule = rules.get(random.nextInt(rules.size()));
+        final SpecialRule specialRule = rules.get(random.nextInt(rules.size()));
+        startGame(worldName, winRule, specialRule);
+    }
+
+    protected void startGame(String worldName, WinRule winRule, SpecialRule specialRule) {
+        if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
+        tag.worldName = worldName;
+        loadWorld();
+        tag.winRule = winRule;
+        tag.specialRule = specialRule;
         final WorldBorder originalWorldBorder = world.getWorldBorder();
         final WorldBorder fakeWorldBorder = Bukkit.createWorldBorder();
         fakeWorldBorder.setCenter(originalWorldBorder.getCenter());
@@ -710,7 +697,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         Collections.shuffle(eligible);
         tag.moleUuid = tag.winRule == WinRule.MOLE ? eligible.get(random.nextInt(eligible.size())).getUniqueId() : null;
         tag.useSquads = switch (eligible.size()) {
-        case 1, 2, 3, 5 -> false;
+        case 1, 2, 3, 5 -> true;
         default -> random.nextInt(eligible.size()) > 0;
         };
         if (tag.useSquads) {
@@ -752,7 +739,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         for (Player target : eligible) {
             resetPlayer(target);
-            giveGear(target);
+            target.getInventory().addItem(KitItem.spawnKitItem());
             Bukkit.getScheduler().runTaskLater(this, () -> target.setInvisible(true), 1L);
             Bukkit.getScheduler().runTaskLater(this, () -> target.setInvisible(false), 2L);
             Gladiator gladiator = new Gladiator(target);
@@ -800,7 +787,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         tag.suddenDeath = false;
         tag.warmUp = true;
         tag.totalPlayers = eligible.size();
-        tag.worldUsed += 1;
     }
 
     protected void resetPlayer(Player target) {
@@ -838,6 +824,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         } while (false);
     }
 
+    /**
+     * Clean up the game map without deleting the map.
+     */
     protected void cleanUpGame() {
         for (Entity e : removeEntities) e.remove();
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -911,27 +900,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             ? getGladiator(killer)
             : null;
         if (gladiator2 != null) {
-            if (tag.specialRule == SpecialRule.ENCHANT_ON_KILL) {
-                for (ItemStack item : killer.getInventory()) {
-                    if (item == null || item.getType() == Material.AIR) continue;
-                    enchant(item);
-                }
-                killer.sendMessage(text("Your gear was improved", GOLD));
-            }
             if (tag.specialRule == SpecialRule.HEAL_ON_KILL) {
                 killer.setHealth(killer.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
                 killer.sendMessage(text("You've been healed", GOLD));
-            }
-            if (tag.specialRule == SpecialRule.GEAR_ON_KILL) {
-                ItemStack item;
-                switch (random.nextInt(3)) {
-                case 0: item = spawnWeapon(); break;
-                case 1: item = spawnArmor(); break;
-                case 2: item = spawnArrows(); break;
-                default: item = null;
-                }
-                if (item != null) giveItem(player, item);
-                killer.sendMessage(text("You received extra gear", GOLD));
             }
             if (tag.specialRule == SpecialRule.POTION_ON_KILL) {
                 List<PotionEffectType> pts = Arrays.asList(PotionEffectType.INCREASE_DAMAGE,
@@ -1078,14 +1049,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         preparePlayer(player);
         player.setGameMode(GameMode.ADVENTURE);
         player.teleport(spawnLocation, TeleportCause.PLUGIN);
-        if (tag.specialRule == SpecialRule.DEATH_BUFF) {
-            for (ItemStack item : player.getInventory()) {
-                if (item == null || item.getType() == Material.AIR) continue;
-                enchant(item);
-            }
-            giveGear(player);
-            player.sendMessage(text("You received extra gear!", GOLD));
-        }
     }
 
     public List<Player> getAlive() {
@@ -1120,10 +1083,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (playerSquad != null) {
                 ls.add(text("Team " + playerSquad.name, playerSquad.getTextColor(), TextDecoration.BOLD));
             }
-            ls.add(textOfChildren(text("Win ", GRAY),
+            ls.add(textOfChildren(text(tiny("win "), GRAY),
                                   text(tag.winRule.displayName, RED)));
-            ls.add(textOfChildren(text("Special ", GRAY),
-                                  text(tag.specialRule.displayName, RED)));
+            ls.add(text(tiny("special"), GRAY));
+            ls.add(text(tag.specialRule.displayName, RED));
             if (tag.limitedLives && playerGladiator != null) {
                 ls.add(join(JoinConfiguration.noSeparators(),
                             text("Lives ", GRAY),
@@ -1218,271 +1181,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    protected static final List<Enchantment> FORBIDDEN_ENCHANTMENTS = List.of(new Enchantment[] {
-            Enchantment.DURABILITY,
-            Enchantment.DAMAGE_ARTHROPODS,
-            Enchantment.DAMAGE_UNDEAD,
-            Enchantment.DEPTH_STRIDER,
-            Enchantment.DIG_SPEED,
-            Enchantment.FROST_WALKER,
-            Enchantment.LOOT_BONUS_BLOCKS,
-            Enchantment.LOOT_BONUS_MOBS,
-            Enchantment.LUCK,
-            Enchantment.LURE,
-            Enchantment.MENDING,
-            Enchantment.OXYGEN,
-            Enchantment.PROTECTION_FALL,
-            Enchantment.PROTECTION_FIRE,
-            Enchantment.SILK_TOUCH,
-            Enchantment.SOUL_SPEED,
-            Enchantment.WATER_WORKER,
-        });
-
-    protected ItemStack enchant(ItemStack item) {
-        if (item.getType() == Material.TRIDENT) {
-            item.addUnsafeEnchantment(Enchantment.LOYALTY, Enchantment.LOYALTY.getMaxLevel());
-            item.addUnsafeEnchantment(Enchantment.IMPALING, Enchantment.IMPALING.getMaxLevel());
-        } else if (item.getType() == Material.CROSSBOW) {
-            item.addUnsafeEnchantment(Enchantment.QUICK_CHARGE, Enchantment.QUICK_CHARGE.getMaxLevel());
-            item.addUnsafeEnchantment(Enchantment.MULTISHOT, Enchantment.MULTISHOT.getMaxLevel());
-            item.addUnsafeEnchantment(Enchantment.PIERCING, Enchantment.PIERCING.getMaxLevel());
-        } else if (item.getType() == Material.BOW) {
-            item.addUnsafeEnchantment(Enchantment.ARROW_INFINITE, Enchantment.ARROW_INFINITE.getMaxLevel());
-        }
-        for (int i = 0; i < 10; i += 1) {
-            List<Enchantment> list = new ArrayList<>();
-            list.addAll(List.of(Enchantment.values()));
-            list.removeAll(FORBIDDEN_ENCHANTMENTS);
-            list.removeIf(enchantment -> !enchantment.canEnchantItem(item) || enchantment.isCursed());
-            if (list.isEmpty()) break;
-            Collections.shuffle(list);
-            Enchantment enchantment = list.get(0);
-            item.addUnsafeEnchantment(enchantment, enchantment.getMaxLevel());
-        }
-        return item;
-    }
-
-    protected void giveGear(Player player) {
-        ItemStack weapon = spawnWeapon();
-        giveItem(player, weapon);
-        giveItem(player, spawnHelmet());
-        giveItem(player, spawnChestplate());
-        giveItem(player, spawnLeggings());
-        giveItem(player, spawnBoots());
-        giveBuffItem(player);
-        giveDebuffItem(player);
-        if (weapon.getType() == Material.BOW || weapon.getType() == Material.CROSSBOW) {
-            giveItem(player, spawnArrows());
-            giveItem(player, new ItemStack(Material.ARROW, 64));
-            int dogAmount = random.nextInt(8) - random.nextInt(8);
-            if (dogAmount > 0) {
-                for (int i = 0; i < dogAmount; i += 1) {
-                    Wolf wolf = player.getWorld().spawn(player.getLocation(), Wolf.class, w -> {
-                            w.setTamed(true);
-                            w.setOwner(player);
-                            w.setPersistent(false);
-                            w.setRemoveWhenFarAway(true);
-                            final double health = 40.0;
-                            w.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(health);
-                            w.setHealth(health);
-                            w.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).setBaseValue(10.0);
-                            w.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).setBaseValue(0.5);
-                        });
-                    removeEntities.add(wolf);
-                }
-                if (dogAmount == 1) {
-                    player.sendMessage(text("You got a dog!", BLUE));
-                } else {
-                    player.sendMessage(text("You got " + dogAmount + " dogs!", BLUE));
-                }
-            }
-        } else {
-            giveItem(player, enchant(new ItemStack(Material.SHIELD)));
-        }
-    }
-
-    protected boolean setEquipment(Player player, EquipmentSlot slot, ItemStack item) {
-        ItemStack old = player.getEquipment().getItem(slot);
-        if (old != null && old.getType() != Material.AIR) return false;
-        player.getEquipment().setItem(slot, item);
-        return true;
-    }
-
-    protected boolean addInventory(Player player, ItemStack item) {
-        player.getInventory().addItem(item);
-        return true;
-    }
-
-    protected boolean giveItem(Player player, ItemStack item) {
-        Material material = item.getType();
-        if (MaterialTags.HELMETS.isTagged(material)) {
-            return setEquipment(player, EquipmentSlot.HEAD, item) || addInventory(player, item);
-        } else if (MaterialTags.CHESTPLATES.isTagged(material)) {
-            return setEquipment(player, EquipmentSlot.CHEST, item) || addInventory(player, item);
-        } else if (MaterialTags.LEGGINGS.isTagged(material)) {
-            return setEquipment(player, EquipmentSlot.LEGS, item) || addInventory(player, item);
-        } else if (MaterialTags.BOOTS.isTagged(material)) {
-            return setEquipment(player, EquipmentSlot.FEET, item) || addInventory(player, item);
-        } else if (MaterialTags.SWORDS.isTagged(material) || MaterialTags.BOWS.isTagged(material)
-                   || material == Material.TRIDENT || material == Material.CROSSBOW) {
-            return setEquipment(player, EquipmentSlot.HAND, item) || addInventory(player, item);
-        } else if (material == Material.SHIELD) {
-            return setEquipment(player, EquipmentSlot.OFF_HAND, item) || addInventory(player, item);
-        } else {
-            addInventory(player, item);
-            return true;
-        }
-    }
-
-    protected ItemStack spawnArrows() {
-        switch (random.nextInt(8)) {
-        case 0: case 1: case 2:
-            return enchant(new ItemStack(Material.ARROW, 64));
-        case 3:
-            return enchant(new ItemStack(Material.SPECTRAL_ARROW, 64));
-        case 4:
-            return Items.potionItem(new ItemStack(Material.TIPPED_ARROW, 32), PotionType.POISON);
-        case 5:
-            return Items.potionItem(new ItemStack(Material.TIPPED_ARROW, 32), PotionType.INSTANT_DAMAGE);
-        case 6:
-            return Items.potionItem(new ItemStack(Material.TIPPED_ARROW, 64), PotionType.SLOWNESS);
-        case 7:
-            return Items.potionItem(new ItemStack(Material.TIPPED_ARROW, 32), PotionEffectType.WITHER, 200);
-        default: throw new IllegalStateException();
-        }
-    }
-
-    protected ItemStack spawnWeapon() {
-        switch (random.nextInt(4)) {
-        case 0: return enchant(new ItemStack(Material.BOW));
-        case 1: return enchant(new ItemStack(Material.NETHERITE_SWORD));
-        case 2: return enchant(new ItemStack(Material.NETHERITE_AXE));
-        case 3: return enchant(new ItemStack(Material.CROSSBOW));
-        default: throw new IllegalStateException();
-        }
-    }
-
-    protected ItemStack spawnArmor() {
-        switch (random.nextInt(9)) {
-        case 0: return enchant(new ItemStack(Material.IRON_CHESTPLATE));
-        case 1: return enchant(new ItemStack(Material.DIAMOND_CHESTPLATE));
-        case 2: return enchant(new ItemStack(Material.NETHERITE_CHESTPLATE));
-        case 3: return enchant(new ItemStack(Material.IRON_LEGGINGS));
-        case 4: return enchant(new ItemStack(Material.DIAMOND_LEGGINGS));
-        case 5: return enchant(new ItemStack(Material.NETHERITE_LEGGINGS));
-        case 6: return enchant(new ItemStack(Material.IRON_BOOTS));
-        case 7: return enchant(new ItemStack(Material.DIAMOND_BOOTS));
-        case 8: return enchant(new ItemStack(Material.NETHERITE_BOOTS));
-        default: throw new IllegalStateException();
-        }
-    }
-
-    protected ItemStack spawnHelmet() {
-        switch (random.nextInt(3)) {
-        case 0: return enchant(new ItemStack(Material.IRON_HELMET));
-        case 1: return enchant(new ItemStack(Material.DIAMOND_HELMET));
-        case 2: return enchant(new ItemStack(Material.NETHERITE_HELMET));
-        default: throw new IllegalStateException();
-        }
-    }
-
-    protected ItemStack spawnChestplate() {
-        switch (random.nextInt(3)) {
-        case 0: return enchant(new ItemStack(Material.IRON_CHESTPLATE));
-        case 1: return enchant(new ItemStack(Material.DIAMOND_CHESTPLATE));
-        case 2: return enchant(new ItemStack(Material.NETHERITE_CHESTPLATE));
-        default: throw new IllegalStateException();
-        }
-    }
-
-    protected ItemStack spawnLeggings() {
-        switch (random.nextInt(3)) {
-        case 0: return enchant(new ItemStack(Material.IRON_LEGGINGS));
-        case 1: return enchant(new ItemStack(Material.DIAMOND_LEGGINGS));
-        case 2: return enchant(new ItemStack(Material.NETHERITE_LEGGINGS));
-        default: throw new IllegalStateException();
-        }
-    }
-
-    protected ItemStack spawnBoots() {
-        switch (random.nextInt(3)) {
-        case 0: return enchant(new ItemStack(Material.IRON_BOOTS));
-        case 1: return enchant(new ItemStack(Material.DIAMOND_BOOTS));
-        case 2: return enchant(new ItemStack(Material.NETHERITE_BOOTS));
-        default: throw new IllegalStateException();
-        }
-    }
-
-    protected void giveBuffItem(Player player) {
-        switch (random.nextInt(3)) {
-        case 0: case 1: {
-            int appleAmount = 1;
-            for (int i = 0; i < 6; i += 1) appleAmount += random.nextInt(2);
-            giveItem(player, new ItemStack(Material.GOLDEN_APPLE, appleAmount));
-            break;
-        }
-        case 2: {
-            int potionAmount = 1 + random.nextInt(3);
-            for (int i = 0; i < potionAmount; i += 1) {
-                giveItem(player, potion(true));
-            }
-            break;
-        }
-        default: throw new IllegalStateException();
-        }
-    }
-
-    protected void giveDebuffItem(Player player) {
-        int potionAmount = 1 + random.nextInt(2);
-        for (int i = 0; i < potionAmount; i += 1) {
-            giveItem(player, potion(false));
-        }
-    }
-
-    protected ItemStack potion(boolean buff) {
-        final ItemStack item;
-        final PotionType pt;
-        if (buff) {
-            item = new ItemStack(Material.POTION);
-            PotionType[] pts = {
-                PotionType.STRENGTH,
-                PotionType.INSTANT_HEAL,
-                PotionType.REGEN,
-                PotionType.INVISIBILITY
-            };
-            pt = pts[random.nextInt(pts.length)];
-        } else {
-            if (random.nextBoolean()) {
-                item = new ItemStack(Material.SPLASH_POTION);
-            } else {
-                item = new ItemStack(Material.LINGERING_POTION);
-            }
-            PotionType[] pts = {
-                PotionType.INSTANT_DAMAGE,
-                PotionType.POISON
-            };
-            pt = pts[random.nextInt(pts.length)];
-        }
-        PotionMeta meta = (PotionMeta) item.getItemMeta();
-        final boolean extended;
-        final boolean upgraded;
-        if (pt.isExtendable() && pt.isUpgradeable()) {
-            extended = random.nextBoolean();
-            upgraded = !extended;
-        } else {
-            extended = pt.isExtendable();
-            upgraded = pt.isUpgradeable();
-        }
-        try {
-            meta.setBasePotionData(new PotionData(pt, extended, upgraded));
-        } catch (IllegalArgumentException iae) {
-            iae.printStackTrace();
-            meta.setBasePotionData(new PotionData(pt, false, false));
-        }
-        item.setItemMeta(meta);
-        return item;
-    }
-
     @EventHandler
     private void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
@@ -1492,6 +1190,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             Bukkit.getScheduler().runTask(this, () -> player.setGameMode(GameMode.ADVENTURE));
         }
         enter(player);
+        if (pvpArenaMaps.isVoteActive()) {
+            pvpArenaMaps.remindToVote(player);
+        }
     }
 
     @EventHandler
@@ -1554,45 +1255,64 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    private void copyWorld(String worldName) {
+    private void copyWorld(String worldName, File dest) {
         log("copyWorld " + worldName);
         File source = new File(new File(getDataFolder(), "maps"), worldName);
-        File dest = new File(Bukkit.getWorldContainer(), "pvparena_" + worldName);
         copyFileStructure(source, dest);
     }
 
-    private World loadWorld(String worldName) {
-        log("loadWorld " + worldName);
-        File folder = new File(Bukkit.getWorldContainer(), "pvparena_" + worldName);
-        if (!folder.isDirectory()) {
-            copyWorld(worldName);
-        }
+    private void loadWorld() {
+        log("loadWorld " + tag.worldName);
+        int index = -1;
+        String path;
+        File folder;
+        do {
+            index += 1;
+            path = "pvparena_" + tag.worldName + "_" + index;
+            folder = new File(Bukkit.getWorldContainer(), path);
+        } while (folder.exists());
+        copyWorld(tag.worldName, folder);
         File configFile = new File(folder, "config.yml");
         YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
-        WorldCreator wc = new WorldCreator("pvparena_" + worldName);
+        WorldCreator wc = new WorldCreator(path);
         wc.environment(World.Environment.valueOf(config.getString("world.Environment", "NORMAL")));
         wc.generateStructures(config.getBoolean("world.GenerateStructures"));
         wc.generator(config.getString("world.Generator"));
         wc.type(WorldType.valueOf(config.getString("world.WorldType", "NORMAL")));
-        getServer().createWorld(wc);
-        World result = getServer().getWorld("pvparena_" + worldName);
-        result.setAutoSave(false);
-        return result;
+        world = wc.createWorld();
+        world.setAutoSave(false);
+        world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
+        world.setGameRule(GameRule.MOB_GRIEFING, false);
+        world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
+        world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
+        world.setGameRule(GameRule.DO_FIRE_TICK, false);
+        world.setGameRule(GameRule.FIRE_DAMAGE, true);
+        world.setGameRule(GameRule.SHOW_DEATH_MESSAGES, true);
+        world.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, false);
+        world.setGameRule(GameRule.NATURAL_REGENERATION, false);
+        world.setDifficulty(Difficulty.EASY);
+        areasFile = loadAreasFile();
     }
 
-    protected World getWorld(String worldName) {
-        World result = Bukkit.getWorld("pvparena_" + worldName);
-        if (result == null) result = loadWorld(worldName);
-        result.setGameRule(GameRule.DO_MOB_SPAWNING, false);
-        result.setGameRule(GameRule.MOB_GRIEFING, false);
-        result.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
-        result.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
-        result.setGameRule(GameRule.DO_FIRE_TICK, false);
-        result.setGameRule(GameRule.FIRE_DAMAGE, true);
-        result.setGameRule(GameRule.SHOW_DEATH_MESSAGES, true);
-        result.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, false);
-        result.setDifficulty(Difficulty.EASY);
-        return result;
+    private void deleteWorld() {
+        if (world == null) return;
+        getLogger().info("deleteWorld " + world.getName());
+        File folder = world.getWorldFolder();
+        if (!Bukkit.unloadWorld(world, false)) {
+            throw new IllegalStateException("Unloading world " + world.getName());
+        }
+        deleteFile(folder);
+    }
+
+    private void deleteFile(File file) {
+        getLogger().info("deleteFile " + file);
+        if (!file.exists()) return;
+        if (file.isDirectory()) {
+            for (File child : file.listFiles()) {
+                deleteFile(child);
+            }
+        }
+        file.delete();
     }
 
     @EventHandler
@@ -1616,7 +1336,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return null;
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     private void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Firework) {
             event.setCancelled(true);
@@ -1652,8 +1372,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 event.setCancelled(true);
                 return;
             }
-            if (event.getDamager() instanceof AbstractArrow && tag.specialRule == SpecialRule.ARROWS_DOUBLE_DAMAGE) {
-                event.setDamage(event.getFinalDamage() * 2.0);
+            if (event.getDamager() instanceof AbstractArrow && tag.specialRule == SpecialRule.ARROW_DOUBLE_DAMAGE) {
+                event.setDamage(DamageModifier.BASE, event.getDamage(DamageModifier.BASE) * 2.0);
+            }
+            if (event.getDamager() instanceof AbstractArrow && tag.specialRule == SpecialRule.ARROW_NO_DAMAGE) {
+                event.setDamage(DamageModifier.BASE, 0.0);
             }
             if (event.getDamager() instanceof Wolf wolf) {
                 if (tag.useSquads) {
@@ -1664,9 +1387,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                         }
                     }
                 }
-                if (tag.specialRule == SpecialRule.DOGS_INSTA_KILL) {
-                    event.setDamage(2048.0);
-                }
+                // if (tag.specialRule == SpecialRule.DOGS_INSTA_KILL) {
+                //     event.setDamage(2048.0);
+                // }
             }
             if (event.getDamager() instanceof Player && tag.specialRule == SpecialRule.VAMPIRISM) {
                 Player damager = (Player) event.getDamager();
@@ -1830,6 +1553,19 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             event.setCancelled(true);
         } else if (e instanceof ArmorStand) {
             event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    private void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        Gladiator gladiator = getGladiator(player);
+        if (gladiator == null) return;
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (KitItem.isKitItem(item)) {
+            event.setCancelled(true);
+            if (gladiator.dead || gladiator.gameOver) return;
+            new KitMenu(player, gladiator).open();
         }
     }
 

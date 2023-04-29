@@ -1,19 +1,19 @@
 package com.cavetale.pvparena;
 
 public enum SpecialRule {
-    NONE("Regular combat"),
+    ARROW_DOUBLE_DAMAGE("Double arrow damage"),
+    ARROW_VAMPIRISM("Arrow hits heal"),
+    ARROW_NO_DAMAGE("Arrows deal no damage"),
+    CREEPER_REVENGE("Dying spawns creeper"),
+    //DOGS_INSTA_KILL("Dogs are deadly"),
     HEAL_ON_KILL("Every Kill Heals"),
-    GEAR_ON_KILL("Kills drop extra gear"),
+    KIT_ON_DEATH("Death grants kit"),
+    NONE("Regular combat"),
     POTION_ON_KILL("Kills give potion effect"),
-    ENCHANT_ON_KILL("Kills enchant your gear"),
-    ARROWS_DOUBLE_DAMAGE("Arrows have double damage"),
-    DOGS_INSTA_KILL("Dogs are deadly"),
-    VAMPIRISM("Vampirism"),
-    ARROW_VAMPIRISM("Arrow Hits Heal"),
-    CREEPER_REVENGE("Dying spawns a creeper"),
     SHUFFLE_ON_KILL("Kills shuffle players"),
+    VAMPIRISM("Vampirism"),
     ZOMBIECALYPSE("Zombie Apocalypse"),
-    DEATH_BUFF("Dying makes you Stronger");
+    ;
 
     public final String displayName;
 
