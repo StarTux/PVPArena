@@ -258,15 +258,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     private void tickIdle() {
-        if (tag.event) {
-            bossBar.name(text("Preparing for Event...", RED));
-            bossBar.progress(0.0f);
-            ServerPlugin.getInstance().setServerSidebarLines(List.of(new Component[] {
-                        text("/pvparena", YELLOW),
-                        text("Preparing Event", GRAY),
-                    }));
-            return;
-        }
         if (tag.pause) {
             if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
             bossBar.name(text("Game Paused", RED));
