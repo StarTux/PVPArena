@@ -1,9 +1,11 @@
 package com.cavetale.pvparena;
 
 import com.cavetale.core.font.GuiOverlay;
+import com.cavetale.core.item.ItemKinds;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.util.Gui;
 import com.cavetale.mytems.util.Items;
+import com.winthier.title.TitlePlugin;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Sound;
@@ -36,7 +38,7 @@ public final class KitMenu {
                                              textOfChildren(Mytems.MOUSE_LEFT, text(" View kit items", GRAY))));
                     meta.addItemFlags(ItemFlag.values());
                 });
-            int index = nextIndex;
+            int index = nextIndex++;
             gui.setItem(index % 3 + 3, index / 3 + 1, icon, click -> {
                     if (!click.isLeftClick()) return;
                     open(kit);
@@ -66,6 +68,7 @@ public final class KitMenu {
                 player.closeInventory();
                 if (!KitItem.isKitItem(player.getInventory().getItemInMainHand())) return;
                 gladiator.kit = kit;
+                TitlePlugin.getInstance().setPlayerListPrefix(player, ItemKinds.icon(kit.getIcon()));
                 player.getInventory().clear();
                 kit.apply(player);
                 player.playSound(player.getLocation(), Sound.BLOCK_LEVER_CLICK, SoundCategory.MASTER, 1.0f, 1.0f);

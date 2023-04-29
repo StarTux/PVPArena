@@ -5,10 +5,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import org.bukkit.Color;
 import org.bukkit.Material;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
@@ -28,15 +26,14 @@ public enum Kit {
             return new ItemStack(Material.NETHERITE_SWORD);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(SHARPNESS, 5)),
+            return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(SHARPNESS, 4)),
                           HEAD, item(Material.DIAMOND_HELMET, Map.of(PROTECTION, 4)),
                           CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(PROTECTION, 4)),
                           LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(PROTECTION, 4)),
                           FEET, item(Material.DIAMOND_BOOTS, Map.of(PROTECTION, 4)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(new ItemStack(Material.GOLDEN_APPLE),
-                           potion(Material.POTION, PotionType.STRENGTH, PotionPotency.UPGRADED));
+            return List.of(potion(Material.POTION, PotionType.STRENGTH, PotionPotency.EXTENDED));
         }
     },
     AXE_WARRIOR {
@@ -46,14 +43,13 @@ public enum Kit {
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.NETHERITE_AXE, Map.of(SHARPNESS, 5)),
                           OFF_HAND, item(Material.SHIELD, Map.of()),
-                          HEAD, item(Material.DIAMOND_HELMET, Map.of(PROTECTION, 4, Enchantment.THORNS, 3)),
-                          CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(PROTECTION, 4, Enchantment.THORNS, 3)),
-                          LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(PROTECTION, 4, Enchantment.THORNS, 3)),
-                          FEET, item(Material.DIAMOND_BOOTS, Map.of(PROTECTION, 4, Enchantment.THORNS, 3)));
+                          HEAD, item(Material.DIAMOND_HELMET, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)),
+                          CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)),
+                          LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)),
+                          FEET, item(Material.DIAMOND_BOOTS, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(new ItemStack(Material.GOLDEN_APPLE),
-                           potion(Material.SPLASH_POTION, PotionType.SLOWNESS, PotionPotency.UPGRADED));
+            return List.of(potion(Material.SPLASH_POTION, PotionType.SLOWNESS, PotionPotency.UPGRADED));
         }
     },
     NINJA {
@@ -61,24 +57,12 @@ public enum Kit {
             return Mytems.BLIND_EYE.createIcon();
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            ItemStack sword = item(Material.GOLDEN_SWORD, Map.of(SHARPNESS, 3));
-            sword.editMeta(meta -> {
-                    for (Map.Entry<Attribute, AttributeModifier> entry : sword.getType().getDefaultAttributeModifiers(EquipmentSlot.HAND).entries()) {
-                        if (entry.getKey() == Attribute.GENERIC_ATTACK_SPEED) continue;
-                        meta.addAttributeModifier(entry.getKey(), entry.getValue());
-                    }
-                    meta.addAttributeModifier(Attribute.GENERIC_ATTACK_SPEED,
-                                              new AttributeModifier(UUID.fromString("aabdaa48-116a-4051-94ce-362d1530c5f3"),
-                                                                    "pvp_arena_ninja", 8.0,
-                                                                    AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND));
-                });
-            return Map.of(HAND, sword);
+            return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(SHARPNESS, 5)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.INVISIBILITY, PotionPotency.EXTENDED),
-                           potion(Material.POTION, PotionType.INVISIBILITY, PotionPotency.EXTENDED),
-                           potion(Material.POTION, PotionType.NIGHT_VISION, PotionPotency.EXTENDED),
-                           potion(Material.POTION, PotionType.SPEED, PotionPotency.UPGRADED));
+                           potion(Material.POTION, PotionType.STRENGTH, PotionPotency.UPGRADED),
+                           potion(Material.POTION, PotionType.NIGHT_VISION, PotionPotency.EXTENDED));
         }
     },
     ARCHER {
@@ -94,7 +78,6 @@ public enum Kit {
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(new ItemStack(Material.ARROW, 64),
-                           potion(Material.POTION, PotionType.SPEED, PotionPotency.UPGRADED),
                            potion(Material.POTION, PotionType.SPEED, PotionPotency.UPGRADED));
         }
     },
@@ -132,8 +115,7 @@ public enum Kit {
                           FEET, item(Material.NETHERITE_BOOTS, Map.of(PROTECTION, 5)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(new ItemStack(Material.GOLDEN_APPLE),
-                           potion(Material.POTION, PotionType.TURTLE_MASTER, PotionPotency.UPGRADED),
+            return List.of(potion(Material.POTION, PotionType.TURTLE_MASTER, PotionPotency.UPGRADED),
                            potion(Material.POTION, PotionType.FIRE_RESISTANCE, PotionPotency.UPGRADED));
         }
     },
@@ -150,12 +132,10 @@ public enum Kit {
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.LINGERING_POTION, PotionType.INSTANT_DAMAGE, PotionPotency.UPGRADED),
-                           potion(Material.LINGERING_POTION, PotionType.INSTANT_DAMAGE, PotionPotency.UPGRADED),
-                           potion(Material.LINGERING_POTION, PotionType.POISON, PotionPotency.EXTENDED),
-                           potion(Material.LINGERING_POTION, PotionType.SLOWNESS, PotionPotency.EXTENDED),
+                           potion(Material.LINGERING_POTION, PotionEffectType.HARM, Duration.ofSeconds(1), 2),
+                           potion(Material.LINGERING_POTION, PotionEffectType.POISON, Duration.ofSeconds(60), 1),
+                           potion(Material.LINGERING_POTION, PotionEffectType.GLOWING, Duration.ofSeconds(30), 0),
                            potion(Material.LINGERING_POTION, PotionEffectType.BLINDNESS, Duration.ofSeconds(10), 0),
-                           potion(Material.SPLASH_POTION, PotionType.REGEN, PotionPotency.EXTENDED),
-                           potion(Material.SPLASH_POTION, PotionType.REGEN, PotionPotency.EXTENDED),
                            new ItemStack(Material.SPECTRAL_ARROW, 64));
         }
     },
@@ -174,6 +154,29 @@ public enum Kit {
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of();
+        }
+    },
+    HEALER {
+        @Override public ItemStack getIcon() {
+            return Mytems.HEART.createIcon();
+        }
+        @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
+            final Color c = Color.fromRGB(0xFFFFFF);
+            return Map.of(HEAD, leather(Material.LEATHER_HELMET, c, Map.of(PROTECTION, 3)),
+                          CHEST, leather(Material.LEATHER_CHESTPLATE, c, Map.of(PROJECTILE_PROTECTION, 4)),
+                          LEGS, leather(Material.LEATHER_LEGGINGS, c, Map.of(PROJECTILE_PROTECTION, 4)),
+                          FEET, leather(Material.LEATHER_BOOTS, c, Map.of(FIRE_PROTECTION, 4)));
+        }
+        @Override public List<ItemStack> getRespawnItems() {
+            return List.of(potion(Material.SPLASH_POTION, PotionType.INSTANT_HEAL, PotionPotency.UPGRADED),
+                           potion(Material.SPLASH_POTION, PotionType.INSTANT_HEAL, PotionPotency.UPGRADED),
+                           potion(Material.SPLASH_POTION, PotionType.INSTANT_HEAL, PotionPotency.UPGRADED),
+                           potion(Material.SPLASH_POTION, PotionType.INSTANT_HEAL, PotionPotency.UPGRADED),
+                           potion(Material.SPLASH_POTION, PotionType.INSTANT_HEAL, PotionPotency.UPGRADED),
+                           potion(Material.SPLASH_POTION, PotionType.INSTANT_HEAL, PotionPotency.UPGRADED),
+                           potion(Material.SPLASH_POTION, PotionType.REGEN, PotionPotency.EXTENDED),
+                           potion(Material.SPLASH_POTION, PotionType.REGEN, PotionPotency.EXTENDED),
+                           potion(Material.SPLASH_POTION, PotionType.REGEN, PotionPotency.EXTENDED));
         }
     },
     ;

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
@@ -44,6 +45,7 @@ import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
@@ -60,6 +62,7 @@ import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Hanging;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Tameable;
@@ -69,6 +72,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.LeavesDecayEvent;
+import org.bukkit.event.entity.AreaEffectCloudApplyEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
@@ -86,6 +90,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -595,6 +600,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (now > gladiator.respawnCooldown) {
                 gladiator.dead = false;
                 gladiator.invulnerable = now + 1000L;
+                player.getInventory().remove(Material.GLASS_BOTTLE);
                 if (gladiator.kit != null) gladiator.kit.onRespawn(player);
                 if (tag.specialRule == SpecialRule.KIT_ON_DEATH) {
                     if (!player.getInventory().contains(KitItem.spawnKitItem())) {
@@ -697,7 +703,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         Collections.shuffle(eligible);
         tag.moleUuid = tag.winRule == WinRule.MOLE ? eligible.get(random.nextInt(eligible.size())).getUniqueId() : null;
         tag.useSquads = switch (eligible.size()) {
-        case 1, 2, 3, 5 -> true;
+        case 1, 2, 3, 5 -> false;
         default -> random.nextInt(eligible.size()) > 0;
         };
         if (tag.useSquads) {
@@ -831,6 +837,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         for (Entity e : removeEntities) e.remove();
         for (Player p : Bukkit.getOnlinePlayers()) {
             TitlePlugin.getInstance().setColor(p, null);
+            TitlePlugin.getInstance().setPlayerListPrefix(p, null);
         }
         removeEntities.clear();
     }
@@ -839,6 +846,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     private void onPlayerDeath(PlayerDeathEvent event) {
         for (Player target : Bukkit.getOnlinePlayers()) {
             target.sendActionBar(event.deathMessage());
+            target.sendMessage(event.deathMessage());
         }
         event.deathMessage(null);
         event.getDrops().clear();
@@ -850,8 +858,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     c.setPersistent(false);
                     c.setRemoveWhenFarAway(true);
                     c.setPowered(true);
-                    c.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(10.0);
-                    c.setHealth(10.0);
+                    final double health = 100.0;
+                    c.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(health);
+                    c.setHealth(health);
                 });
             removeEntities.add(creeper);
         }
@@ -1457,8 +1466,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 return;
             }
         }
-        removeEntities.add(projectile);
         projectile.setPersistent(false);
+        if (projectile instanceof AbstractArrow arrow) {
+            arrow.setPickupStatus(AbstractArrow.PickupStatus.CREATIVE_ONLY);
+        }
     }
 
     @EventHandler
@@ -1607,6 +1618,31 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 if (getSquad(owner) == getSquad(target)) {
                     event.setCancelled(true);
                 }
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    private void onPlayerItemConsume(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask(this, () -> player.getInventory().remove(Material.GLASS_BOTTLE));
+    }
+
+    /**
+     * Here we assume that lingering potions are always evil.
+     */
+    @EventHandler(ignoreCancelled = true)
+    private void onAreaEffectCloudApply(AreaEffectCloudApplyEvent event) {
+        if (tag.state != ArenaState.PLAY) return;
+        if (!(event.getEntity().getSource() instanceof Player thrower)) return;
+        for (Iterator<LivingEntity> iter = event.getAffectedEntities().iterator(); iter.hasNext();) {
+            if (!(iter.next() instanceof Player target)) continue;
+            if (tag.useSquads) {
+                Squad a = getSquad(thrower);
+                Squad b = getSquad(target);
+                if (a.equals(b)) iter.remove();
+            } else {
+                if (target.equals(thrower)) iter.remove();
             }
         }
     }
