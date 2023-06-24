@@ -977,13 +977,30 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     protected List<Vec3i> findSpawnVectors() {
         if (areasFile.getAreas().getSpawn().isEmpty()) {
-            return Arrays.asList(Vec3i.of(world.getSpawnLocation()));
+            return List.of(Vec3i.of(world.getSpawnLocation()));
         }
-        Set<Vec3i> result = new HashSet<>();
+        Set<Vec3i> set = new HashSet<>();
         for (Cuboid cuboid : areasFile.getAreas().getSpawn()) {
-            result.addAll(cuboid.enumerate());
+            set.addAll(cuboid.enumerate());
         }
-        return new ArrayList<>(result);
+        List<Vec3i> result = new ArrayList<>();
+        for (Vec3i vec : set) {
+            Block block = vec.toBlock(world);
+            Block below = block.getRelative(0, -1, 0);
+            Block above = block.getRelative(0, 1, 0);
+            if (block.isLiquid() || above.isLiquid()) continue;
+            if (!block.getCollisionShape().getBoundingBoxes().isEmpty()) continue;
+            if (!above.getCollisionShape().getBoundingBoxes().isEmpty()) continue;
+            var bbs = below.getCollisionShape().getBoundingBoxes();
+            if (bbs.size() != 1) continue;
+            var bb = bbs.iterator().next();
+            if (bb.getWidthX() != 1.0 || bb.getWidthZ() != 1.0 || bb.getHeight() != 1.0) continue;
+            result.add(vec);
+        }
+        if (result.isEmpty()) {
+            return List.of(Vec3i.of(world.getSpawnLocation()));
+        }
+        return result;
     }
 
     protected Vec3i findSpawnVector() {
