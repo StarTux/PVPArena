@@ -6,11 +6,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.bukkit.Color;
+import org.bukkit.FireworkEffect;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import static com.cavetale.core.util.CamelCase.toCamelCase;
@@ -184,8 +186,13 @@ public enum Kit {
             return new ItemStack(Material.FIREWORK_ROCKET);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
+            ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 64);
+            rocket.editMeta(m -> {
+                    FireworkMeta meta = (FireworkMeta) m;
+                    meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL).build());
+                });
             return Map.of(HAND, new ItemStack(Material.CROSSBOW),
-                          OFF_HAND, new ItemStack(Material.FIREWORK_ROCKET, 64),
+                          OFF_HAND, rocket,
                           CHEST, new ItemStack(Material.ELYTRA));
         }
         @Override public List<ItemStack> getRespawnItems() {
