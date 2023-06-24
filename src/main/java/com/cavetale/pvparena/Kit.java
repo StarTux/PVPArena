@@ -179,6 +179,22 @@ public enum Kit {
                            potion(Material.SPLASH_POTION, PotionType.REGEN, PotionPotency.EXTENDED));
         }
     },
+    ROCKETEER {
+        @Override public ItemStack getIcon() {
+            return new ItemStack(Material.FIREWORK_ROCKET);
+        }
+        @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
+            return Map.of(HAND, new ItemStack(Material.CROSSBOW),
+                          OFF_HAND, new ItemStack(Material.CROSSBOW),
+                          CHEST, new ItemStack(Material.ELYTRA));
+        }
+        @Override public List<ItemStack> getRespawnItems() {
+            return List.of(potion(Material.POTION, PotionType.SLOW_FALLING, PotionPotency.EXTENDED),
+                           new ItemStack(Material.FIREWORK_ROCKET, 64),
+                           new ItemStack(Material.FIREWORK_ROCKET, 64),
+                           new ItemStack(Material.FIREWORK_ROCKET, 64));
+        }
+    },
     ;
 
     public abstract ItemStack getIcon();
