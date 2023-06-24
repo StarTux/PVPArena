@@ -189,7 +189,8 @@ public enum Kit {
             ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 64);
             rocket.editMeta(m -> {
                     FireworkMeta meta = (FireworkMeta) m;
-                    meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL).build());
+                    meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL)
+                                   .withColor(Color.RED).build());
                 });
             return Map.of(HAND, new ItemStack(Material.CROSSBOW),
                           OFF_HAND, rocket,
