@@ -185,12 +185,11 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, new ItemStack(Material.CROSSBOW),
-                          OFF_HAND, new ItemStack(Material.CROSSBOW),
+                          OFF_HAND, new ItemStack(Material.FIREWORK_ROCKET, 64),
                           CHEST, new ItemStack(Material.ELYTRA));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.SLOW_FALLING, PotionPotency.EXTENDED),
-                           new ItemStack(Material.FIREWORK_ROCKET, 64),
                            new ItemStack(Material.FIREWORK_ROCKET, 64),
                            new ItemStack(Material.FIREWORK_ROCKET, 64));
         }
