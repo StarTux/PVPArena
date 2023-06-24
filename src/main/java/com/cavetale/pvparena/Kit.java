@@ -189,7 +189,7 @@ public enum Kit {
                           CHEST, new ItemStack(Material.ELYTRA));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.POTION, PotionType.SLOW_FALLING, PotionPotency.EXTENDED),
+            return List.of(potion(Material.POTION, PotionType.SLOW_FALLING, PotionPotency.UPGRADED),
                            new ItemStack(Material.FIREWORK_ROCKET, 64),
                            new ItemStack(Material.FIREWORK_ROCKET, 64));
         }
