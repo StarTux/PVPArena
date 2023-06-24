@@ -64,7 +64,7 @@ public enum Kit {
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.INVISIBILITY, PotionPotency.EXTENDED),
                            potion(Material.POTION, PotionType.STRENGTH, PotionPotency.UPGRADED),
-                           potion(Material.POTION, PotionType.NIGHT_VISION, PotionPotency.EXTENDED));
+                           potion(Material.POTION, PotionType.JUMP, PotionPotency.UPGRADED));
         }
     },
     ARCHER {
@@ -185,24 +185,26 @@ public enum Kit {
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.FIREWORK_ROCKET);
         }
-        @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
+        private ItemStack rocket() {
             ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 64);
             rocket.editMeta(m -> {
                     FireworkMeta meta = (FireworkMeta) m;
                     meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL)
                                    .withColor(Color.RED).build());
                 });
+            return rocket;
+        }
+        @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.CROSSBOW, Map.of(Enchantment.QUICK_CHARGE, 5)),
-                          OFF_HAND, rocket,
+                          OFF_HAND, rocket(),
                           HEAD, item(Material.IRON_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 4)),
                           CHEST, new ItemStack(Material.ELYTRA),
                           LEGS, item(Material.IRON_LEGGINGS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 4)),
-                          FEET, item(Material.IRON_BOOTS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 3)));
+                          FEET, item(Material.IRON_BOOTS, Map.of(Enchantment.PROTECTION_FALL, 4)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.SLOW_FALLING, PotionPotency.UPGRADED),
-                           new ItemStack(Material.FIREWORK_ROCKET, 64),
-                           new ItemStack(Material.FIREWORK_ROCKET, 64));
+                           rocket());
         }
     },
     ;
