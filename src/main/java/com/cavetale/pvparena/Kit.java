@@ -192,9 +192,12 @@ public enum Kit {
                     meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL)
                                    .withColor(Color.RED).build());
                 });
-            return Map.of(HAND, new ItemStack(Material.CROSSBOW),
+            return Map.of(HAND, item(Material.CROSSBOW, Map.of(Enchantment.QUICK_CHARGE, 5)),
                           OFF_HAND, rocket,
-                          CHEST, new ItemStack(Material.ELYTRA));
+                          HEAD, item(Material.IRON_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 4)),
+                          CHEST, new ItemStack(Material.ELYTRA),
+                          LEGS, item(Material.IRON_LEGGINGS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 4)),
+                          FEET, item(Material.IRON_BOOTS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 3)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.SLOW_FALLING, PotionPotency.UPGRADED),
