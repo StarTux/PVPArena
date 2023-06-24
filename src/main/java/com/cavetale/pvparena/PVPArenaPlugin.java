@@ -60,7 +60,6 @@ import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Firework;
 import org.bukkit.entity.Hanging;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -1338,10 +1337,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     private void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (event.getDamager() instanceof Firework) {
-            event.setCancelled(true);
-            return;
-        }
         if (event.getEntity() instanceof Hanging) {
             event.setCancelled(true);
             return;
