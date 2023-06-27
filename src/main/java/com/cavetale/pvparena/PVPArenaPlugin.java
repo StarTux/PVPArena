@@ -1572,10 +1572,17 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     private void onPlayerInteract(PlayerInteractEvent event) {
+        switch (event.getAction()) {
+        case RIGHT_CLICK_BLOCK:
+        case RIGHT_CLICK_AIR:
+            break;
+        default: return;
+        }
+        if (!event.hasItem()) return;
         Player player = event.getPlayer();
         Gladiator gladiator = getGladiator(player);
         if (gladiator == null) return;
-        ItemStack item = player.getInventory().getItemInMainHand();
+        ItemStack item = event.getItem();
         if (KitItem.isKitItem(item)) {
             event.setCancelled(true);
             if (gladiator.dead || gladiator.gameOver) return;
