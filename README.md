@@ -14,6 +14,12 @@ Written for Paper 1.16.2, with the expectations that it will run on most future 
 
 - `pvparena.pvparena` Use the command above
 
+## Areas
+
+File name `pvparena`
+
+- `spawn` Where player (teams) spawn
+
 ## Future plans
 
 - Automatically start new round
