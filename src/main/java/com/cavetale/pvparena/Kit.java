@@ -29,6 +29,7 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(SHARPNESS, 4)),
+                          OFF_HAND, new ItemStack(Material.SHIELD),
                           HEAD, item(Material.DIAMOND_HELMET, Map.of(PROTECTION, 4)),
                           CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(PROTECTION, 4)),
                           LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(PROTECTION, 4)),
