@@ -1098,7 +1098,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             ls.add(textOfChildren(text(tiny("win "), GRAY),
                                   text(tag.winRule.displayName, RED)));
-            ls.add(text(tiny("special"), GRAY));
+            ls.add(text(tiny("scenario"), GRAY));
             ls.add(text(tag.specialRule.displayName, RED));
             if (tag.limitedLives && playerGladiator != null) {
                 ls.add(join(JoinConfiguration.noSeparators(),
