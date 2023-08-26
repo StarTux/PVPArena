@@ -31,7 +31,7 @@ public final class Items {
     public static final Enchantment BLAST_PROTECTION = Enchantment.PROTECTION_EXPLOSIONS;
     private Items() { }
 
-    public static ItemStack potion(Material material, PotionType potionType, PotionPotency potency) {
+    public static ItemStack potion(Material material, int amount, PotionType potionType, PotionPotency potency) {
         ItemStack itemStack = new ItemStack(material);
         itemStack.editMeta(m -> {
                 PotionMeta meta = (PotionMeta) m;
@@ -39,10 +39,15 @@ public final class Items {
                 boolean upgraded = potency == PotionPotency.UPGRADED && potionType.isUpgradeable();
                 meta.setBasePotionData(new PotionData(potionType, extended, upgraded));
             });
+        itemStack.setAmount(amount);
         return itemStack;
     }
 
-    public static ItemStack potion(Material material, PotionEffectType type, Duration duration, int amplifier) {
+    public static ItemStack potion(Material material, PotionType potionType, PotionPotency potency) {
+        return potion(material, 1, potionType, potency);
+    }
+
+    public static ItemStack potion(Material material, int amount, PotionEffectType type, Duration duration, int amplifier) {
         ItemStack itemStack = new ItemStack(material);
         itemStack.editMeta(m -> {
                 PotionMeta meta = (PotionMeta) m;
@@ -52,7 +57,12 @@ public final class Items {
                 meta.setColor(type.getColor());
                 meta.displayName(text(toCamelCase(" ", List.of(type.getName().split("_"))), WHITE));
             });
+        itemStack.setAmount(amount);
         return itemStack;
+    }
+
+    public static ItemStack potion(Material material, PotionEffectType type, Duration duration, int amplifier) {
+        return potion(material, 1, type, duration, amplifier);
     }
 
     public static ItemStack loadedCrossbow(ItemStack loaded) {

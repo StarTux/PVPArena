@@ -44,11 +44,10 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.NETHERITE_AXE, Map.of(SHARPNESS, 5)),
-                          OFF_HAND, item(Material.SHIELD, Map.of()),
-                          HEAD, item(Material.DIAMOND_HELMET, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)),
+                          HEAD, item(Material.DIAMOND_HELMET, Map.of(PROTECTION, 4)),
                           CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)),
                           LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)),
-                          FEET, item(Material.DIAMOND_BOOTS, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)));
+                          FEET, item(Material.DIAMOND_BOOTS, Map.of(PROTECTION, 4)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.SPLASH_POTION, PotionType.SLOWNESS, PotionPotency.UPGRADED));
@@ -62,7 +61,7 @@ public enum Kit {
             return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(SHARPNESS, 5)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.POTION, PotionType.INVISIBILITY, PotionPotency.EXTENDED),
+            return List.of(potion(Material.POTION, PotionType.INVISIBILITY, PotionPotency.NONE),
                            potion(Material.POTION, PotionType.STRENGTH, PotionPotency.UPGRADED),
                            potion(Material.POTION, PotionType.JUMP, PotionPotency.UPGRADED));
         }
@@ -99,9 +98,8 @@ public enum Kit {
                           FEET, item(Material.IRON_BOOTS, Map.of(PROTECTION, 3)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            ItemStack damageArrow = potion(Material.TIPPED_ARROW, PotionType.INSTANT_DAMAGE, PotionPotency.UPGRADED);
-            damageArrow.setAmount(64);
-            return List.of(damageArrow);
+            return List.of(potion(Material.TIPPED_ARROW, 16, PotionType.INSTANT_DAMAGE, PotionPotency.NONE),
+                           new ItemStack(Material.ARROW, 64));
         }
     },
     TANK {
@@ -110,15 +108,14 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.IRON_SWORD, Map.of()),
-                          OFF_HAND, Mytems.VENGEANCE_SHIELD.createItemStack(),
-                          HEAD, item(Material.NETHERITE_HELMET, Map.of(PROTECTION, 5)),
-                          CHEST, item(Material.NETHERITE_CHESTPLATE, Map.of(PROTECTION, 5)),
-                          LEGS, item(Material.NETHERITE_LEGGINGS, Map.of(PROTECTION, 5)),
-                          FEET, item(Material.NETHERITE_BOOTS, Map.of(PROTECTION, 5)));
+                          OFF_HAND, Mytems.DEFLECTOR_SHIELD.createItemStack(),
+                          HEAD, item(Material.NETHERITE_HELMET, Map.of(PROJECTILE_PROTECTION, 4)),
+                          CHEST, item(Material.NETHERITE_CHESTPLATE, Map.of(PROTECTION, 4)),
+                          LEGS, item(Material.NETHERITE_LEGGINGS, Map.of(BLAST_PROTECTION, 4)),
+                          FEET, item(Material.NETHERITE_BOOTS, Map.of(PROTECTION, 4)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.POTION, PotionType.TURTLE_MASTER, PotionPotency.UPGRADED),
-                           potion(Material.POTION, PotionType.FIRE_RESISTANCE, PotionPotency.UPGRADED));
+            return List.of(potion(Material.POTION, PotionType.TURTLE_MASTER, PotionPotency.UPGRADED));
         }
     },
     POTION_MASTER {
@@ -186,7 +183,7 @@ public enum Kit {
             return new ItemStack(Material.FIREWORK_ROCKET);
         }
         private ItemStack rocket() {
-            ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 64);
+            ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 32);
             rocket.editMeta(m -> {
                     FireworkMeta meta = (FireworkMeta) m;
                     meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL)
@@ -197,7 +194,6 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.CROSSBOW, Map.of(Enchantment.QUICK_CHARGE, 3)),
-                          OFF_HAND, rocket(),
                           HEAD, item(Material.IRON_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 4)),
                           CHEST, new ItemStack(Material.ELYTRA),
                           LEGS, item(Material.IRON_LEGGINGS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 4)),

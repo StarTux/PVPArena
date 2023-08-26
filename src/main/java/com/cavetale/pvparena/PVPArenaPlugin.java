@@ -888,8 +888,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
         }
         gladiator.dead = true;
+        gladiator.respawnCooldown = System.currentTimeMillis() + 5000 + (long) gladiator.deaths * 2000L;
         gladiator.deaths += 1;
-        gladiator.respawnCooldown = System.currentTimeMillis() + 5000;
         gladiator.respawnCooldownDisplay = 3;
         Player killer = player.getKiller();
         Gladiator gladiator2 = killer != null && !killer.equals(player)

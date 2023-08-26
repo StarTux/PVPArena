@@ -31,6 +31,10 @@ public final class KitMenu {
         Gui gui = new Gui(PVPArenaPlugin.instance);
         int nextIndex = 0;
         for (Kit kit : Kit.values()) {
+            if (PVPArenaPlugin.instance.tag.winRule == WinRule.LAST_SURVIVOR) {
+                if (kit == Kit.ROCKETEER) continue;
+                if (kit == Kit.NINJA) continue;
+            }
             ItemStack icon = kit.getIcon();
             icon.editMeta(meta -> {
                     Items.text(meta, List.of(text(kit.getDisplayName(), color(0xD04040)),
