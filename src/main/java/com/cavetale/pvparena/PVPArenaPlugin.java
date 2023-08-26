@@ -762,7 +762,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                                     text(tag.winRule.displayName, RED, BOLD),
                                     text(" " + tag.winRule.getDescription(), WHITE)));
             target.sendMessage(join(noSeparators(),
-                                    text("Special: ", GRAY),
+                                    text("Scenario: ", GRAY),
                                     text(tag.specialRule.displayName, WHITE)));
             if (tag.winRule == WinRule.MOLE && Objects.equals(target.getUniqueId(), tag.moleUuid)) {
                 target.showTitle(Title.title(empty(),
