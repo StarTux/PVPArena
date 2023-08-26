@@ -589,7 +589,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             long now = System.currentTimeMillis();
             if (now > gladiator.respawnCooldown) {
                 gladiator.dead = false;
-                gladiator.invulnerable = now + 1000L;
+                gladiator.invulnerable = now + 5000L;
                 player.getInventory().remove(Material.GLASS_BOTTLE);
                 if (!player.getInventory().contains(KitItem.spawnKitItem())) {
                     player.getInventory().addItem(KitItem.spawnKitItem());
@@ -1191,6 +1191,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (tag.state != ArenaState.PLAY || tag.gameTime < WARM_UP_TICKS) {
             event.setCancelled(true);
             return;
+        }
+        if (!(event.getEntity() instanceof Player player)) return;
+        Gladiator gladiator = getGladiator(player);
+        if (gladiator == null) return;
+        if (gladiator.invulnerable > System.currentTimeMillis()) {
+            event.setCancelled(true);
         }
     }
 
