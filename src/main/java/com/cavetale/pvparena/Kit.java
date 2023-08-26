@@ -195,9 +195,9 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.CROSSBOW, Map.of(Enchantment.QUICK_CHARGE, 3)),
-                          HEAD, item(Material.IRON_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 4)),
+                          HEAD, item(Material.LEATHER_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 3)),
                           CHEST, new ItemStack(Material.ELYTRA),
-                          LEGS, item(Material.IRON_LEGGINGS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 4)),
+                          LEGS, item(Material.LEATHER_LEGGINGS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 3)),
                           FEET, Mytems.STOMPERS.createItemStack());
         }
         @Override public List<ItemStack> getRespawnItems() {
