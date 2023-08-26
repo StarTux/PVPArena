@@ -7,7 +7,6 @@ public enum SpecialRule {
     CREEPER_REVENGE("Dying spawns creeper"),
     //DOGS_INSTA_KILL("Dogs are deadly"),
     HEAL_ON_KILL("Every Kill Heals"),
-    KIT_ON_DEATH("Death grants kit"),
     NONE("Regular combat"),
     POTION_ON_KILL("Kills give potion effect"),
     SHUFFLE_ON_KILL("Kills shuffle players"),

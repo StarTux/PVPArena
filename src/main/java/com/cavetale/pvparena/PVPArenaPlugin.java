@@ -591,11 +591,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 gladiator.dead = false;
                 gladiator.invulnerable = now + 1000L;
                 player.getInventory().remove(Material.GLASS_BOTTLE);
-                if (gladiator.kit != null) gladiator.kit.onRespawn(player);
-                if (tag.specialRule == SpecialRule.KIT_ON_DEATH) {
-                    if (!player.getInventory().contains(KitItem.spawnKitItem())) {
-                        player.getInventory().addItem(KitItem.spawnKitItem());
-                    }
+                if (!player.getInventory().contains(KitItem.spawnKitItem())) {
+                    player.getInventory().addItem(KitItem.spawnKitItem());
                 }
                 respawn(player);
             } else {
@@ -880,7 +877,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 }
             }
         }
-        preparePlayer(player);
+        resetPlayer(player);
         player.setGameMode(GameMode.SPECTATOR);
         if (player.getLastDamageCause() instanceof EntityDamageEvent) {
             EntityDamageEvent lastDamage = (EntityDamageEvent) player.getLastDamageCause();

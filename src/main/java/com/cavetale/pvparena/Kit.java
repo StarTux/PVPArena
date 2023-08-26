@@ -251,6 +251,8 @@ public enum Kit {
 
     /**
      * Call this when the kit owner respawns.
+     * Currently unused because we give a new kit on every death.
+     * See commit `Give new kit after death`
      */
     public void onRespawn(Player player) {
         for (ItemStack item : getRespawnItems()) {
