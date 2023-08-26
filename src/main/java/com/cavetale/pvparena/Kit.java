@@ -105,7 +105,7 @@ public enum Kit {
     },
     TANK {
         @Override public ItemStack getIcon() {
-            return new ItemStack(Material.SHIELD);
+            return Mytems.DEFLECTOR_SHIELD.createIcon();
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.IRON_SWORD, Map.of()),
