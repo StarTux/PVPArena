@@ -5,14 +5,15 @@ import com.cavetale.core.item.ItemKinds;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.util.Gui;
 import com.cavetale.mytems.util.Items;
-import com.winthier.title.TitlePlugin;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import static com.cavetale.pvparena.PVPArenaPlugin.plugin;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
@@ -28,10 +29,10 @@ public final class KitMenu {
         final int size = 6 * 9;
         GuiOverlay.Builder builder = GuiOverlay.BLANK.builder(size, color(0xD04040))
             .title(text("Kit Menu", color(0x202020)));
-        Gui gui = new Gui(PVPArenaPlugin.instance);
+        Gui gui = new Gui(plugin());
         int nextIndex = 0;
         for (Kit kit : Kit.values()) {
-            if (PVPArenaPlugin.instance.tag.winRule == WinRule.LAST_SURVIVOR) {
+            if (plugin().tag.winRule == WinRule.LAST_SURVIVOR) {
                 if (kit == Kit.ROCKETEER) continue;
                 if (kit == Kit.NINJA) continue;
             }
@@ -57,7 +58,7 @@ public final class KitMenu {
         final int size = 6 * 9;
         GuiOverlay.Builder builder = GuiOverlay.BLANK.builder(size, color(0xD0D040))
             .title(text(kit.getDisplayName(), color(0x202020)));
-        Gui gui = new Gui(PVPArenaPlugin.instance);
+        Gui gui = new Gui(plugin());
         int nextIndex = 0;
         for (ItemStack item : kit.getAllItems()) {
             gui.setItem(nextIndex++, item);
@@ -72,10 +73,22 @@ public final class KitMenu {
                 player.closeInventory();
                 if (!KitItem.isKitItem(player.getInventory().getItemInMainHand())) return;
                 gladiator.kit = kit;
-                TitlePlugin.getInstance().setPlayerListPrefix(player, ItemKinds.icon(kit.getIcon()));
                 player.getInventory().clear();
                 kit.apply(player);
                 player.playSound(player.getLocation(), Sound.BLOCK_LEVER_CLICK, SoundCategory.MASTER, 1.0f, 1.0f);
+                if (plugin().tag.useSquads) {
+                    Squad squad = plugin().getSquad(player);
+                    if (squad != null) {
+                        for (Player other : Bukkit.getOnlinePlayers()) {
+                            if (plugin().getSquad(other) == squad) {
+                                other.sendMessage(textOfChildren(plugin().PVP,
+                                                                 text(" " + player.getName() + " picked "),
+                                                                 ItemKinds.icon(kit.getIcon()),
+                                                                 text(" " + kit.getDisplayName(), GOLD)));
+                            }
+                        }
+                    }
+                }
             });
         gui.setItem(Gui.OUTSIDE, null, click -> {
                 if (!click.isLeftClick()) return;

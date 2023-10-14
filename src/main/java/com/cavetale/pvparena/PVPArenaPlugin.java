@@ -35,7 +35,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -106,7 +105,7 @@ import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.Component.textOfChildren;
-import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
+import static net.kyori.adventure.text.JoinConfiguration.separator;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextColor.color;
 import static net.kyori.adventure.text.format.TextDecoration.*;
@@ -133,21 +132,27 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     protected List<Highscore> highscore = List.of();
     protected List<Component> highscoreLines = List.of();
     protected static final String HEART = "\u2764";
-    public static final Component TITLE = join(noSeparators(),
-                                               Mytems.LETTER_P,
-                                               Mytems.LETTER_V,
-                                               Mytems.LETTER_P,
-                                               text("A", color(0xff2200), BOLD),
-                                               text("r", color(0xff562a), BOLD),
-                                               text("e", color(0xff8955), BOLD),
-                                               text("n", color(0xffbd7f), BOLD),
-                                               text("a", color(0xfff0a9), BOLD));
+    public static final Component TITLE = textOfChildren(Mytems.LETTER_P,
+                                                         Mytems.LETTER_V,
+                                                         Mytems.LETTER_P,
+                                                         text("A", color(0xff2200), BOLD),
+                                                         text("r", color(0xff562a), BOLD),
+                                                         text("e", color(0xff8955), BOLD),
+                                                         text("n", color(0xffbd7f), BOLD),
+                                                         text("a", color(0xfff0a9), BOLD));
+    public static final Component PVP = textOfChildren(Mytems.LETTER_P,
+                                                       Mytems.LETTER_V,
+                                                       Mytems.LETTER_P);
     private List<UUID> winners = List.of();
     protected final PVPArenaMaps pvpArenaMaps = new PVPArenaMaps(this);
 
     @Override
-    public void onEnable() {
+    public void onLoad() {
         instance = this;
+    }
+
+    @Override
+    public void onEnable() {
         reloadConfig();
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
@@ -522,12 +527,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         log("Team " + winner.name + " Victory: " + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text(winner.name, winner.getTextColor()),
                                   text("Wins this round!", winner.getTextColor()));
-        Component message = join(JoinConfiguration.noSeparators(),
-                                 text(winner.name + " wins this round: ", winner.getTextColor()),
-                                 join(JoinConfiguration.separator(text(", ", GRAY)),
-                                      gladiators.stream()
-                                      .map(g -> text(g.name, WHITE))
-                                      .collect(Collectors.toList())));
+        Component message = join(textOfChildren(text(winner.name + " wins this round: ", winner.getTextColor()),
+                                                join(separator(text(", ", GRAY)),
+                                                     gladiators.stream()
+                                                     .map(g -> text(g.name, WHITE))
+                                                     .collect(Collectors.toList()))));
         for (Player target : world.getPlayers()) {
             target.sendMessage("");
             target.showTitle(title);
@@ -557,16 +561,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text("Draw!", GRAY),
                                   empty());
-        Component message = join(JoinConfiguration.noSeparators(),
-                                 join(JoinConfiguration.separator(text(", ", GRAY)),
-                                      winnerSquads.stream()
-                                      .map(sq -> text(sq.name, sq.getTextColor()))
-                                      .collect(Collectors.toList())),
-                                 text(" draw this round: ", GRAY),
-                                 join(JoinConfiguration.separator(text(", ", GRAY)),
-                                      gladiators.stream()
-                                      .map(g -> text(g.name, WHITE))
-                                      .collect(Collectors.toList())));
+        Component message = textOfChildren(join(separator(text(", ", GRAY)),
+                                                winnerSquads.stream()
+                                                .map(sq -> text(sq.name, sq.getTextColor()))
+                                                .collect(Collectors.toList())),
+                                           text(" draw this round: ", GRAY),
+                                           join(separator(text(", ", GRAY)),
+                                                gladiators.stream()
+                                                .map(g -> text(g.name, WHITE))
+                                                .collect(Collectors.toList())));
         for (Player target : world.getPlayers()) {
             target.sendMessage("");
             target.showTitle(title);
@@ -758,12 +761,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         for (Player target : Bukkit.getOnlinePlayers()) {
             target.sendMessage("");
-            target.sendMessage(join(noSeparators(),
-                                    text(tag.winRule.displayName, RED, BOLD),
-                                    text(" " + tag.winRule.getDescription(), WHITE)));
-            target.sendMessage(join(noSeparators(),
-                                    text("Scenario: ", GRAY),
-                                    text(tag.specialRule.displayName, WHITE)));
+            target.sendMessage(textOfChildren(text(tag.winRule.displayName, RED, BOLD),
+                                              text(" " + tag.winRule.getDescription(), WHITE)));
+            target.sendMessage(textOfChildren(text("Scenario: ", GRAY),
+                                              text(tag.specialRule.displayName, WHITE)));
             if (tag.winRule == WinRule.MOLE && Objects.equals(target.getUniqueId(), tag.moleUuid)) {
                 target.showTitle(Title.title(empty(),
                                              text("You are the mole!", RED)));
@@ -824,7 +825,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         for (Entity e : removeEntities) e.remove();
         for (Player p : Bukkit.getOnlinePlayers()) {
             TitlePlugin.getInstance().setColor(p, null);
-            TitlePlugin.getInstance().setPlayerListPrefix(p, null);
         }
         removeEntities.clear();
     }
@@ -1101,9 +1101,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             ls.add(text(tiny("scenario"), GRAY));
             ls.add(text(tag.specialRule.displayName, RED));
             if (tag.limitedLives && playerGladiator != null) {
-                ls.add(join(JoinConfiguration.noSeparators(),
-                            text("Lives ", GRAY),
-                            text("" + playerGladiator.lives, RED)));
+                ls.add(textOfChildren(text("Lives ", GRAY),
+                                      text("" + playerGladiator.lives, RED)));
             }
             if (tag.suddenDeath) {
                 ls.add(text("Sudden Death", DARK_RED, TextDecoration.BOLD));
@@ -1115,20 +1114,18 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 if (tag.limitedLives) {
                     Collections.sort(squads, (b, a) -> Integer.compare(a.alive, b.alive));
                     for (Squad squad : squads) {
-                        ls.add(join(JoinConfiguration.noSeparators(),
-                                    text(HEART + squad.alive, RED),
-                                    space(),
-                                    text(squad.name, squad.getTextColor())));
+                        ls.add(textOfChildren(text(HEART + squad.alive, RED),
+                                              space(),
+                                              text(squad.name, squad.getTextColor())));
                     }
                 } else {
                     Collections.sort(squads, (b, a) -> Integer.compare(a.score, b.score));
                     for (Squad squad : squads) {
-                        ls.add(join(JoinConfiguration.noSeparators(),
-                                    text("" + squad.score, WHITE),
-                                    space(),
-                                    text(HEART + squad.alive, RED),
-                                    space(),
-                                    text(squad.name, squad.getTextColor())));
+                        ls.add(textOfChildren(text("" + squad.score, WHITE),
+                                              space(),
+                                              text(HEART + squad.alive, RED),
+                                              space(),
+                                              text(squad.name, squad.getTextColor())));
                     }
                 }
             } else {
@@ -1143,10 +1140,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     });
                 for (Gladiator gladiator : gladiators) {
                     if (gladiator.gameOver) {
-                        ls.add(join(JoinConfiguration.noSeparators(),
-                                    text("" + gladiator.score, GREEN),
-                                    space(),
-                                    text(gladiator.name, DARK_GRAY)));
+                        ls.add(textOfChildren(text("" + gladiator.score, GREEN),
+                                              space(),
+                                              text(gladiator.name, DARK_GRAY)));
                     } else {
                         int hearts = (int) Math.ceil(gladiator.health * 0.5);
                         TextColor nameColor;
@@ -1156,18 +1152,16 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                             nameColor = WHITE;
                         }
                         if (tag.limitedLives) {
-                            ls.add(join(JoinConfiguration.noSeparators(),
-                                        text(HEART + hearts, RED),
-                                        (gladiator.lives > 0 ? text("|" + gladiator.lives, BLUE) : empty()),
-                                        space(),
-                                        text(gladiator.name, nameColor)));
+                            ls.add(textOfChildren(text(HEART + hearts, RED),
+                                                  (gladiator.lives > 0 ? text("|" + gladiator.lives, BLUE) : empty()),
+                                                  space(),
+                                                  text(gladiator.name, nameColor)));
                         } else {
-                            ls.add(join(JoinConfiguration.noSeparators(),
-                                        text("" + gladiator.score, WHITE),
-                                        space(),
-                                        text(HEART + hearts, RED),
-                                        space(),
-                                        text(gladiator.name, nameColor)));
+                            ls.add(textOfChildren(text("" + gladiator.score, WHITE),
+                                                  space(),
+                                                  text(HEART + hearts, RED),
+                                                  space(),
+                                                  text(gladiator.name, nameColor)));
                         }
                     }
                 }
@@ -1667,5 +1661,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     protected List<String> getWorldList() {
         return new ArrayList<>(getConfig().getStringList("worlds"));
+    }
+
+    public static PVPArenaPlugin plugin() {
+        return instance;
     }
 }
