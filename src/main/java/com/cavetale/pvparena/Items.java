@@ -10,7 +10,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.CrossbowMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
@@ -31,20 +30,18 @@ public final class Items {
     public static final Enchantment BLAST_PROTECTION = Enchantment.PROTECTION_EXPLOSIONS;
     private Items() { }
 
-    public static ItemStack potion(Material material, int amount, PotionType potionType, PotionPotency potency) {
+    public static ItemStack potion(Material material, int amount, PotionType potionType) {
         ItemStack itemStack = new ItemStack(material);
         itemStack.editMeta(m -> {
                 PotionMeta meta = (PotionMeta) m;
-                boolean extended = potency == PotionPotency.EXTENDED && potionType.isExtendable();
-                boolean upgraded = potency == PotionPotency.UPGRADED && potionType.isUpgradeable();
-                meta.setBasePotionData(new PotionData(potionType, extended, upgraded));
+                meta.setBasePotionType(potionType);
             });
         itemStack.setAmount(amount);
         return itemStack;
     }
 
-    public static ItemStack potion(Material material, PotionType potionType, PotionPotency potency) {
-        return potion(material, 1, potionType, potency);
+    public static ItemStack potion(Material material, PotionType potionType) {
+        return potion(material, 1, potionType);
     }
 
     public static ItemStack potion(Material material, int amount, PotionEffectType type, Duration duration, int amplifier) {

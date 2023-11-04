@@ -527,11 +527,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         log("Team " + winner.name + " Victory: " + gladiators.stream().map(g -> g.name).collect(Collectors.joining(" ")));
         Title title = Title.title(text(winner.name, winner.getTextColor()),
                                   text("Wins this round!", winner.getTextColor()));
-        Component message = join(textOfChildren(text(winner.name + " wins this round: ", winner.getTextColor()),
-                                                join(separator(text(", ", GRAY)),
-                                                     gladiators.stream()
-                                                     .map(g -> text(g.name, WHITE))
-                                                     .collect(Collectors.toList()))));
+        Component message = textOfChildren(text(winner.name + " wins this round: ", winner.getTextColor()),
+                                           join(separator(text(", ", GRAY)),
+                                                gladiators.stream()
+                                                .map(g -> text(g.name, WHITE))
+                                                .collect(Collectors.toList())));
         for (Player target : world.getPlayers()) {
             target.sendMessage("");
             target.showTitle(title);
@@ -1602,7 +1602,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         for (Squad squad : tag.squads) {
             PlayerTeamQuery.Team team = new PlayerTeamQuery
                 .Team("pvparena:" + squad.name.toLowerCase(),
-                      text(squad.name, squad.getTextColor()));
+                      text(squad.name, squad.getTextColor()),
+                      squad.getTextColor());
             teams.add(team);
         }
         for (Gladiator gladiator : tag.gladiators.values()) {
