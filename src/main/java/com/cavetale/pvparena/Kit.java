@@ -183,16 +183,6 @@ public enum Kit {
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.FIREWORK_ROCKET);
         }
-        private ItemStack rocket() {
-            ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 32);
-            rocket.editMeta(m -> {
-                    FireworkMeta meta = (FireworkMeta) m;
-                    meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL)
-                                   .withColor(Color.RED).build());
-                    meta.setPower(7);
-                });
-            return rocket;
-        }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.CROSSBOW, Map.of(Enchantment.QUICK_CHARGE, 3)),
                           HEAD, item(Material.LEATHER_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 3)),
@@ -202,7 +192,23 @@ public enum Kit {
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.SLOW_FALLING),
-                           rocket());
+                           rocket(32));
+        }
+    },
+    GRENADIER {
+        @Override public ItemStack getIcon() {
+            return new ItemStack(Material.TNT);
+        }
+        @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
+            return Map.of(HAND, item(Material.CROSSBOW, Map.of()),
+                          HEAD, item(Material.NETHERITE_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)),
+                          CHEST, item(Material.NETHERITE_CHESTPLATE, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)),
+                          LEGS, item(Material.NETHERITE_LEGGINGS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)),
+                          FEET, item(Material.NETHERITE_BOOTS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)));
+        }
+        @Override public List<ItemStack> getRespawnItems() {
+            return List.of(new ItemStack(Material.TNT, 64),
+                           rocket(16));
         }
     },
     ;
@@ -258,5 +264,16 @@ public enum Kit {
         for (ItemStack item : getRespawnItems()) {
             player.getInventory().addItem(item);
         }
+    }
+
+    private static ItemStack rocket(final int amount) {
+        ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, amount);
+        rocket.editMeta(m -> {
+                FireworkMeta meta = (FireworkMeta) m;
+                meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL)
+                               .withColor(Color.RED).build());
+                meta.setPower(7);
+            });
+        return rocket;
     }
 }

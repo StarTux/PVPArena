@@ -13,6 +13,7 @@ public final class Tag implements Serializable {
     protected boolean warmUp = false;
     protected int endTime = 0;
     protected String worldName = null;
+    protected String buildWorldPath = null;
     protected int totalPlayers = 0;
     protected WinRule winRule = WinRule.LAST_SURVIVOR;
     protected SpecialRule specialRule = SpecialRule.NONE;

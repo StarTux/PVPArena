@@ -59,6 +59,7 @@ import org.bukkit.entity.Hanging;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.Tameable;
 import org.bukkit.entity.Wolf;
 import org.bukkit.entity.Zombie;
@@ -166,6 +167,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             world = Bukkit.getWorld(tag.worldName);
             if (world != null) {
                 areasFile = loadAreasFile();
+                if (tag.buildWorldPath != null) {
+                    currentBuildWorld = BuildWorld.findWithPath(tag.buildWorldPath);
+                }
             } else {
                 world = null;
                 setIdle();
@@ -687,6 +691,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         loadingWorld = false;
         MapVote.stop(MINIGAME_TYPE);
         tag.worldName = localWorldCopy.getName();
+        tag.buildWorldPath = buildWorld.getPath();
         currentBuildWorld = buildWorld;
         loadWorld(localWorldCopy);
         tag.winRule = winRule;
@@ -782,7 +787,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.teleport(findSpawnLocation(target), TeleportCause.PLUGIN);
         }
         for (Player target : Bukkit.getOnlinePlayers()) {
-            currentBuildWorld.announceMap(world);
             target.sendMessage("");
             target.sendMessage(textOfChildren(text(tag.winRule.displayName, RED, BOLD),
                                               text(" " + tag.winRule.getDescription(), WHITE)));
@@ -795,6 +799,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             target.sendMessage("");
         }
+        currentBuildWorld.announceMap(world);
         log("State PLAY");
         tag.state = ArenaState.PLAY;
         log("Warmup Start");
@@ -916,6 +921,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         gladiator.deaths += 1;
         gladiator.respawnCooldownDisplay = 3;
         Player killer = player.getKiller();
+        if (killer == null && gladiator.lastDamagedBy != null) {
+            killer = Bukkit.getPlayer(gladiator.lastDamagedBy);
+        }
+        gladiator.lastDamagedBy = null;
         Gladiator gladiator2 = killer != null && !killer.equals(player)
             ? getGladiator(killer)
             : null;
@@ -1285,12 +1294,17 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     private static Player getPlayerDamager(Entity damager) {
-        if (damager instanceof Player) {
-            return (Player) damager;
-        } else if (damager instanceof Projectile) {
-            Projectile projectile = (Projectile) damager;
-            if (projectile.getShooter() instanceof Player) {
-                return (Player) projectile.getShooter();
+        if (damager == null) {
+            return null;
+        } else if (damager instanceof Player player) {
+            return player;
+        } else if (damager instanceof Projectile projectile) {
+            if (projectile.getShooter() instanceof Player player) {
+                return player;
+            }
+        } else if (damager instanceof TNTPrimed tnt) {
+            if (tnt.getSource() instanceof Player player) {
+                return player;
             }
         }
         return null;
@@ -1313,16 +1327,20 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 event.setCancelled(true);
                 return;
             }
-            if (event.getDamager() instanceof Player) {
-                Player damager = (Player) event.getDamager();
-                Gladiator gladiator2 = getGladiator(damager);
-                if (gladiator2 == null) {
+            Player damager = getPlayerDamager(event.getDamager());
+            if (damaged.equals(damager)) return;
+            if (damager != null) {
+                Gladiator gladiatorDamager = getGladiator(damager);
+                if (gladiatorDamager == null) {
                     event.setCancelled(true);
                     return;
                 }
-                if (tag.useSquads && gladiator.squad == gladiator2.squad) {
+                if (tag.useSquads && gladiator.squad == gladiatorDamager.squad) {
                     event.setCancelled(true);
                     return;
+                } else {
+                    // not same squad
+                    gladiator.lastDamagedBy = gladiatorDamager.uuid;
                 }
             }
             if (gladiator.invulnerable > System.currentTimeMillis()) {
@@ -1348,8 +1366,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 //     event.setDamage(2048.0);
                 // }
             }
-            if (event.getDamager() instanceof Player && tag.specialRule == SpecialRule.VAMPIRISM) {
-                Player damager = (Player) event.getDamager();
+            if (damager != null && tag.specialRule == SpecialRule.VAMPIRISM) {
                 double dmg = event.getFinalDamage();
                 double maxHealth = damager.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
                 double health = Math.min(maxHealth, damager.getHealth() + dmg * 0.5);
@@ -1357,15 +1374,13 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             if (event.getDamager() instanceof AbstractArrow && tag.specialRule == SpecialRule.ARROW_VAMPIRISM) {
                 AbstractArrow arrow = (AbstractArrow) event.getDamager();
-                if (arrow.getShooter() instanceof Player) {
-                    Player damager = (Player) arrow.getShooter();
+                if (arrow.getShooter() instanceof Player shooter) {
                     double dmg = event.getFinalDamage();
-                    double maxHealth = damager.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
-                    double health = Math.min(maxHealth, damager.getHealth() + dmg * 0.66);
-                    damager.setHealth(health);
+                    double maxHealth = shooter.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+                    double health = Math.min(maxHealth, shooter.getHealth() + dmg * 0.66);
+                    shooter.setHealth(health);
                 }
             }
-            Player damager = getPlayerDamager(event.getDamager());
             if (damager != null) {
                 Gladiator gladiator2 = getGladiator(damager);
                 if (gladiator2 == null) {
@@ -1525,13 +1540,30 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         if (!event.hasItem()) return;
         Player player = event.getPlayer();
+        if (player.getGameMode() == GameMode.SPECTATOR) return;
         Gladiator gladiator = getGladiator(player);
-        if (gladiator == null) return;
+        if (gladiator == null || gladiator.dead || gladiator.gameOver) return;
         ItemStack item = event.getItem();
+        if (item == null) return;
         if (KitItem.isKitItem(item)) {
             event.setCancelled(true);
             if (gladiator.dead || gladiator.gameOver) return;
             new KitMenu(player, gladiator).open();
+        } else if (item.getType() == Material.TNT) {
+            if (tag.state != ArenaState.PLAY) return;
+            if (gladiator.kit != Kit.GRENADIER) return;
+            event.setCancelled(true);
+            item.subtract(1);
+            Location loc = player.getEyeLocation();
+            TNTPrimed tnt = loc.getWorld().spawn(loc.add(loc.getDirection()), TNTPrimed.class, e -> {
+                    e.setFuseTicks(2 * 20);
+                    e.setSource(player);
+                    e.setVelocity(loc.getDirection());
+                    e.setYield((float) 5.0f);
+                });
+            if (tnt == null) return;
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITCH_THROW, SoundCategory.PLAYERS, 0.75f, 0.8f);
+            removeEntities.add(tnt);
         }
     }
 
