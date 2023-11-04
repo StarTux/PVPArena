@@ -14,13 +14,12 @@ import com.cavetale.pvparena.struct.AreasFile;
 import com.cavetale.pvparena.struct.Cuboid;
 import com.cavetale.pvparena.struct.Vec3i;
 import com.cavetale.server.ServerPlugin;
+import com.winthier.creative.BuildWorld;
+import com.winthier.creative.review.MapReview;
+import com.winthier.creative.vote.MapVote;
+import com.winthier.creative.vote.MapVoteResult;
 import com.winthier.title.TitlePlugin;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,12 +48,9 @@ import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
-import org.bukkit.WorldCreator;
-import org.bukkit.WorldType;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.Leaves;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Creeper;
@@ -100,6 +96,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 import static com.cavetale.core.font.Unicode.tiny;
+import static com.winthier.creative.file.Files.deleteWorld;
 import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.space;
@@ -121,7 +118,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     protected static final int TIMED_SCORE_TICKS = 20 * 60 * 5;
     protected static final int MOLE_TICKS = 20 * 60 * 5;
     protected static final int IDLE_TICKS = 20 * 30;
+    protected boolean loadingWorld;
     protected World lobbyWorld;
+    protected BuildWorld currentBuildWorld;
     protected World world;
     protected AreasFile areasFile;
     protected Tag tag;
@@ -143,8 +142,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     public static final Component PVP = textOfChildren(Mytems.LETTER_P,
                                                        Mytems.LETTER_V,
                                                        Mytems.LETTER_P);
+    public static final MinigameMatchType MINIGAME_TYPE = MinigameMatchType.PVP_ARENA;
     private List<UUID> winners = List.of();
-    protected final PVPArenaMaps pvpArenaMaps = new PVPArenaMaps(this);
 
     @Override
     public void onLoad() {
@@ -162,7 +161,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         bossBar = BossBar.bossBar(text("PVPArena", RED), 1.0f, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
         new PVPAdminCommand(this).enable();
         new PVPArenaCommand(this).enable();
-        pvpArenaMaps.load(getConfig().getStringList("worlds"));
         loadTag();
         if (tag.worldName != null) {
             world = Bukkit.getWorld(tag.worldName);
@@ -186,7 +184,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         cleanUpGame();
         ServerPlugin.getInstance().setServerSidebarLines(null);
-        if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
+        MapVote.stop(MINIGAME_TYPE);
     }
 
     protected void enter(Player player) {
@@ -246,7 +244,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             resetPlayer(target);
         }
-        deleteWorld();
+        if (world != null) {
+            deleteWorld(world);
+            world = null;
+        }
     }
 
     private static float clampProgress(float in) {
@@ -263,7 +264,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     private void tickIdle() {
         if (tag.pause) {
-            if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
+            MapVote.stop(MINIGAME_TYPE);
             bossBar.name(text("Game Paused", RED));
             bossBar.progress(0.0f);
             ServerPlugin.getInstance().setServerSidebarLines(null);
@@ -271,17 +272,19 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         int eligible = getEligible().size();
         if (eligible < 2) {
-            if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
+            MapVote.stop(MINIGAME_TYPE);
             bossBar.name(text("Waiting for more players", RED));
             bossBar.progress(0.0f);
             ServerPlugin.getInstance().setServerSidebarLines(null);
             return;
         }
-        if (!pvpArenaMaps.isVoteActive()) {
-            pvpArenaMaps.startVote();
+        if (!loadingWorld && !MapVote.isActive(MINIGAME_TYPE)) {
+            MapVote.start(MINIGAME_TYPE, vote -> {
+                    vote.setLobbyWorld(lobbyWorld);
+                    vote.setTitle(TITLE);
+                    vote.setCallback(this::startGame);
+                });
         }
-        bossBar.name(textOfChildren(text("Get Ready: ", GRAY), text("/pvparena vote", YELLOW)));
-        bossBar.progress(pvpArenaMaps.voteProgress());
     }
 
     private void tickPlay() {
@@ -485,6 +488,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         for (Player target : world.getPlayers()) {
             target.showTitle(Title.title(text(winnerPlayer.getName(), GREEN),
                                          text("Wins this round!", GREEN)));
+            target.sendMessage("");
             target.sendMessage(text(winnerPlayer.getName() + " wins this round!", GREEN));
             target.playSound(target.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_1, SoundCategory.MASTER, 1.0f, 1.0f);
         }
@@ -651,7 +655,23 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return gladiator != null ? gladiator.score : 0;
     }
 
-    protected void startGame(String worldName) {
+    protected void startGame(MapVoteResult result) {
+        startGame(result.getBuildWorldWinner(), result.getLocalWorldCopy());
+    }
+
+    protected void startGame(BuildWorld buildWorld) {
+        loadingWorld = true;
+        MapVote.stop(MINIGAME_TYPE);
+        buildWorld.makeLocalCopyAsync(localWorldCopy -> startGame(buildWorld, localWorldCopy));
+    }
+
+    protected void startGame(BuildWorld buildWorld, WinRule winRule, SpecialRule specialRule) {
+        loadingWorld = true;
+        MapVote.stop(MINIGAME_TYPE);
+        buildWorld.makeLocalCopyAsync(localWorldCopy -> startGame(buildWorld, localWorldCopy, winRule, specialRule));
+    }
+
+    protected void startGame(BuildWorld buildWorld, World localWorldCopy) {
         List<WinRule> wins = new ArrayList<>();
         for (WinRule win : WinRule.values()) {
             for (int i = 0; i < win.weight; i += 1) wins.add(win);
@@ -660,13 +680,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         List<SpecialRule> rules = new ArrayList<>(Arrays.asList(SpecialRule.values()));
         rules.remove(SpecialRule.NONE);
         final SpecialRule specialRule = rules.get(random.nextInt(rules.size()));
-        startGame(worldName, winRule, specialRule);
+        startGame(buildWorld, localWorldCopy, winRule, specialRule);
     }
 
-    protected void startGame(String worldName, WinRule winRule, SpecialRule specialRule) {
-        if (pvpArenaMaps.isVoteActive()) pvpArenaMaps.stopVote();
-        tag.worldName = worldName;
-        loadWorld();
+    protected void startGame(BuildWorld buildWorld, World localWorldCopy, WinRule winRule, SpecialRule specialRule) {
+        loadingWorld = false;
+        MapVote.stop(MINIGAME_TYPE);
+        tag.worldName = localWorldCopy.getName();
+        currentBuildWorld = buildWorld;
+        loadWorld(localWorldCopy);
         tag.winRule = winRule;
         tag.specialRule = specialRule;
         final WorldBorder originalWorldBorder = world.getWorldBorder();
@@ -760,6 +782,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             target.teleport(findSpawnLocation(target), TeleportCause.PLUGIN);
         }
         for (Player target : Bukkit.getOnlinePlayers()) {
+            currentBuildWorld.announceMap(world);
             target.sendMessage("");
             target.sendMessage(textOfChildren(text(tag.winRule.displayName, RED, BOLD),
                                               text(" " + tag.winRule.getDescription(), WHITE)));
@@ -808,7 +831,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         tag.state = ArenaState.END;
         saveTag();
         do {
-            MinigameMatchCompleteEvent event = new MinigameMatchCompleteEvent(MinigameMatchType.PVP_ARENA);
+            MinigameMatchCompleteEvent event = new MinigameMatchCompleteEvent(MINIGAME_TYPE);
             if (tag.event) event.addFlags(MinigameFlag.EVENT);
             for (Gladiator gladiator : tag.gladiators.values()) {
                 event.addPlayerUuid(gladiator.uuid);
@@ -816,6 +839,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             event.addWinnerUuids(winners);
             event.callEvent();
         } while (false);
+        MapReview.start(world, currentBuildWorld).remindAll();
     }
 
     /**
@@ -1082,7 +1106,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     private void onPlayerHud(PlayerHudEvent event) {
-        event.bossbar(PlayerHudPriority.HIGH, bossBar);
+        event.bossbar(PlayerHudPriority.DEFAULT, bossBar);
         List<Component> ls = new ArrayList<>();
         ls.add(TITLE);
         Player player = event.getPlayer();
@@ -1203,9 +1227,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             Bukkit.getScheduler().runTask(this, () -> player.setGameMode(GameMode.ADVENTURE));
         }
         enter(player);
-        if (pvpArenaMaps.isVoteActive()) {
-            pvpArenaMaps.remindToVote(player);
-        }
     }
 
     @EventHandler
@@ -1234,65 +1255,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         event.setCancelled(true);
     }
 
-    private void copyFileStructure(File source, File target) {
-        log("copyFileStructure " + source + " => " + target);
-        try {
-            ArrayList<String> ignore = new ArrayList<>(Arrays.asList("uid.dat", "session.lock"));
-            if (!ignore.contains(source.getName())) {
-                if (source.isDirectory()) {
-                    if (!target.exists()) {
-                        if (!target.mkdirs()) {
-                            throw new IOException("Couldn't create world directory!");
-                        }
-                    }
-                    String[] files = source.list();
-                    for (String file : files) {
-                        File srcFile = new File(source, file);
-                        File destFile = new File(target, file);
-                        copyFileStructure(srcFile, destFile);
-                    }
-                } else {
-                    InputStream in = new FileInputStream(source);
-                    OutputStream out = new FileOutputStream(target);
-                    byte[] buffer = new byte[1024];
-                    int length;
-                    while ((length = in.read(buffer)) > 0) {
-                        out.write(buffer, 0, length);
-                    }
-                    in.close();
-                    out.close();
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    private void loadWorld(World localWorldCopy) {
+        if (world != null) {
+            deleteWorld(world);
+            world = null;
         }
-    }
-
-    private void copyWorld(String worldName, File dest) {
-        log("copyWorld " + worldName);
-        File source = new File(new File(getDataFolder(), "maps"), worldName);
-        copyFileStructure(source, dest);
-    }
-
-    private void loadWorld() {
-        log("loadWorld " + tag.worldName);
-        int index = -1;
-        String path;
-        File folder;
-        do {
-            index += 1;
-            path = "pvparena_" + tag.worldName + "_" + index;
-            folder = new File(Bukkit.getWorldContainer(), path);
-        } while (folder.exists());
-        copyWorld(tag.worldName, folder);
-        File configFile = new File(folder, "config.yml");
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
-        WorldCreator wc = new WorldCreator(path);
-        wc.environment(World.Environment.valueOf(config.getString("world.Environment", "NORMAL")));
-        wc.generateStructures(config.getBoolean("world.GenerateStructures"));
-        wc.generator(config.getString("world.Generator"));
-        wc.type(WorldType.valueOf(config.getString("world.WorldType", "NORMAL")));
-        world = wc.createWorld();
+        world = localWorldCopy;
         world.setAutoSave(false);
         world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
         world.setGameRule(GameRule.MOB_GRIEFING, false);
@@ -1305,27 +1273,6 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         world.setGameRule(GameRule.NATURAL_REGENERATION, false);
         world.setDifficulty(Difficulty.EASY);
         areasFile = loadAreasFile();
-    }
-
-    private void deleteWorld() {
-        if (world == null) return;
-        getLogger().info("deleteWorld " + world.getName());
-        File folder = world.getWorldFolder();
-        if (!Bukkit.unloadWorld(world, false)) {
-            throw new IllegalStateException("Unloading world " + world.getName());
-        }
-        deleteFile(folder);
-    }
-
-    private void deleteFile(File file) {
-        getLogger().info("deleteFile " + file);
-        if (!file.exists()) return;
-        if (file.isDirectory()) {
-            for (File child : file.listFiles()) {
-                deleteFile(child);
-            }
-        }
-        file.delete();
     }
 
     @EventHandler
@@ -1349,6 +1296,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         return null;
     }
 
+    @SuppressWarnings("deprecation")
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     private void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (event.getEntity() instanceof Hanging) {

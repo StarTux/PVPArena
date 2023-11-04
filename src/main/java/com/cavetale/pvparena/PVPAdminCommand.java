@@ -3,9 +3,13 @@ package com.cavetale.pvparena;
 import com.cavetale.core.command.AbstractCommand;
 import com.cavetale.core.command.CommandArgCompleter;
 import com.cavetale.core.command.CommandNode;
+import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.playercache.PlayerCache;
 import com.cavetale.fam.trophy.Highscore;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
+import com.winthier.creative.BuildWorld;
+import java.util.ArrayList;
+import java.util.List;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import static net.kyori.adventure.text.Component.text;
@@ -19,9 +23,15 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
     @Override
     protected void onEnable() {
         rootNode.addChild("start").arguments("<map> [win] [special]")
-            .completers(CommandArgCompleter.supplyList(() -> PVPArenaPlugin.instance.pvpArenaMaps.getWorldNames()),
-                        CommandArgCompleter.enumLowerList(WinRule.class),
-                        CommandArgCompleter.enumLowerList(SpecialRule.class))
+            .completers(CommandArgCompleter.supplyList(() -> {
+                        List<String> result = new ArrayList<>();
+                        for (BuildWorld buildWorld : BuildWorld.findMinigameWorlds(plugin.MINIGAME_TYPE, false)) {
+                            result.add(buildWorld.getPath());
+                        }
+                        return result;
+                    }),
+                CommandArgCompleter.enumLowerList(WinRule.class),
+                CommandArgCompleter.enumLowerList(SpecialRule.class))
             .description("Start a game")
             .senderCaller(this::start);
         rootNode.addChild("stop").denyTabCompletion()
@@ -74,15 +84,19 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
 
     private boolean start(CommandSender sender, String[] args) {
         if (args.length != 1 && args.length != 3) return false;
-        String worldName = args[0];
+        final BuildWorld buildWorld;
+        buildWorld = BuildWorld.findWithPath(args[0]);
+        if (buildWorld == null || buildWorld.getRow().parseMinigame() != plugin.MINIGAME_TYPE) {
+            throw new CommandWarn("PvP Arena map not found: " + args[0]);
+        }
         if (args.length == 1) {
-            plugin.startGame(worldName);
+            plugin.startGame(buildWorld);
             sender.sendMessage(text("Game started!", YELLOW));
             return true;
         }
         WinRule winRule = CommandArgCompleter.requireEnum(WinRule.class, args[1]);
         SpecialRule specialRule = CommandArgCompleter.requireEnum(SpecialRule.class, args[2]);
-        plugin.startGame(worldName, winRule, specialRule);
+        plugin.startGame(buildWorld, winRule, specialRule);
         sender.sendMessage(text("Game started!", YELLOW));
         return true;
     }
