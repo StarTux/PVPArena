@@ -1558,7 +1558,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             item.subtract(1);
             Location loc = player.getEyeLocation();
             TNTPrimed tnt = loc.getWorld().spawn(loc.add(loc.getDirection()), TNTPrimed.class, e -> {
-                    e.setFuseTicks(2 * 20);
+                    e.setFuseTicks(4 * 20);
                     e.setSource(player);
                     e.setVelocity(loc.getDirection());
                     e.setYield((float) 5.0f);
