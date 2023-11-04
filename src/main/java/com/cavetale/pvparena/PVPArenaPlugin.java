@@ -637,7 +637,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     text("Game Over"),
                 }));
         tag.endTime += 1;
-        if (tag.endTime > (30 * 20)) {
+        if (tag.endTime > (60 * 20)) {
             setIdle();
         }
     }
