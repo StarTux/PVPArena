@@ -1550,7 +1550,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (gladiator.dead || gladiator.gameOver) return;
             new KitMenu(player, gladiator).open();
         } else if (item.getType() == Material.TNT) {
-            if (tag.state != ArenaState.PLAY) return;
+            if (tag.state != ArenaState.PLAY || tag.gameTime < WARM_UP_TICKS) {
+                return;
+            }
             if (gladiator.kit != Kit.GRENADIER) return;
             event.setCancelled(true);
             item.subtract(1);
