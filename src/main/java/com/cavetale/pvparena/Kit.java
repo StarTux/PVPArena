@@ -207,7 +207,7 @@ public enum Kit {
                           FEET, item(Material.NETHERITE_BOOTS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(new ItemStack(Material.TNT, 64),
+            return List.of(new ItemStack(Material.TNT, 32),
                            rocket(16));
         }
     },
