@@ -1561,7 +1561,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     e.setFuseTicks(4 * 20);
                     e.setSource(player);
                     e.setVelocity(loc.getDirection());
-                    e.setYield((float) 5.0f);
+                    e.setYield((float) 4.0f);
                 });
             if (tnt == null) return;
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITCH_THROW, SoundCategory.PLAYERS, 0.75f, 0.8f);
