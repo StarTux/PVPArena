@@ -80,6 +80,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
@@ -90,6 +91,7 @@ import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
@@ -1634,6 +1636,18 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             } else {
                 if (target.equals(thrower)) iter.remove();
             }
+        }
+    }
+
+    @EventHandler
+    private void onInventoryOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+        if (player.getGameMode() == GameMode.SPECTATOR) return;
+        if (player.getGameMode() == GameMode.CREATIVE) return;
+        Gladiator gladiator = getGladiator(player);
+        if (gladiator == null) return;
+        if (event.getInventory().getHolder() instanceof BlockInventoryHolder) {
+            event.setCancelled(true);
         }
     }
 
