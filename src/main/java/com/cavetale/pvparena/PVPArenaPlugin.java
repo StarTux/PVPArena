@@ -1219,7 +1219,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         } else {
             ls.add(text("Preparing Game...", RED));
         }
-        if (tag.event) {
+        if (tag.event && tag.state == ArenaState.IDLE) {
             ls.addAll(highscoreLines);
         }
         if (ls.isEmpty()) return;
