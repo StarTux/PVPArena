@@ -7,6 +7,7 @@ import com.cavetale.core.event.minigame.MinigameFlag;
 import com.cavetale.core.event.minigame.MinigameMatchCompleteEvent;
 import com.cavetale.core.event.minigame.MinigameMatchType;
 import com.cavetale.core.event.player.PlayerTeamQuery;
+import com.cavetale.core.money.Money;
 import com.cavetale.fam.trophy.Highscore;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
@@ -500,6 +501,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         if (tag.event) {
             rewardEventWinner(winnerPlayer);
+            tag.addScore(winnerPlayer.uuid, 10);
+            winnerPlayer.money += 1000;
         }
         this.winners = List.of(winnerPlayer.uuid);
         endGame();
@@ -552,6 +555,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (tag.event) {
             for (Gladiator gladiator : gladiators) {
                 rewardEventWinner(gladiator);
+                tag.addScore(gladiator.uuid, 10);
+                gladiator.money += 1000;
             }
         }
         endGame();
@@ -832,6 +837,15 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
 
     protected void endGame() {
         if (tag.state != ArenaState.PLAY) return;
+        if (tag.event) {
+            for (Gladiator gladiator : tag.gladiators.values()) {
+                tag.addScore(gladiator.uuid, 1);
+                if (gladiator.money > 0) {
+                    Money.get().give(gladiator.uuid, (double) gladiator.money, this, "PvP Arena");
+                    gladiator.money = 0;
+                }
+            }
+        }
         cleanUpGame();
         tag.endTime = 0;
         log("State END");
@@ -948,6 +962,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             gladiator2.kills += 1;
             if (tag.event) {
                 tag.addScore(gladiator2.uuid, 1);
+                gladiator2.money += 100;
                 computeHighscore();
             }
             if (tag.winRule == WinRule.MOLE) {

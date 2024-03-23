@@ -189,7 +189,7 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
                                    "pvp_arena",
                                    TrophyCategory.SWORD,
                                    PVPArenaPlugin.TITLE,
-                                   hi -> "You earned " + hi.score + " kill" + (hi.score == 1 ? "" : "s"));
+                                   hi -> "You earned " + hi.score + " point" + (hi.score == 1 ? "" : "s"));
         sender.sendMessage(text(res + " players rewarded", AQUA));
     }
 }

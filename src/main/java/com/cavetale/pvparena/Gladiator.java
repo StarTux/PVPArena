@@ -27,6 +27,7 @@ public final class Gladiator implements Serializable {
     protected int squad;
     protected Kit kit;
     protected UUID lastDamagedBy;
+    protected int money;
 
     public Gladiator(final Player player) {
         this.uuid = player.getUniqueId();
