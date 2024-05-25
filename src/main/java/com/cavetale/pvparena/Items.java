@@ -3,6 +3,7 @@ package com.cavetale.pvparena;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -53,6 +54,25 @@ public final class Items {
                 meta.addCustomEffect(effect, true);
                 meta.setColor(type.getColor());
                 meta.displayName(text(toCamelCase(" ", List.of(type.getName().split("_"))), WHITE));
+            });
+        itemStack.setAmount(amount);
+        return itemStack;
+    }
+
+    public static ItemStack potion(Material material, int amount, Component displayName, List<PotionEffectType> types, List<Duration> durations, List<Integer> amplifiers) {
+        ItemStack itemStack = new ItemStack(material);
+        itemStack.editMeta(m -> {
+                PotionMeta meta = (PotionMeta) m;
+                for (int i = 0; i < types.size(); i += 1) {
+                    final PotionEffectType type = types.get(i);
+                    final Duration duration = durations.get(i);
+                    final int ticks = (int) (duration.toMillis() / 50L);
+                    if (i == 0) meta.setColor(type.getColor());
+                    final int amplifier = amplifiers.get(i);
+                    PotionEffect effect = new PotionEffect(type, ticks, amplifier, true, false, true);
+                    meta.addCustomEffect(effect, true);
+                }
+                meta.displayName(displayName);
             });
         itemStack.setAmount(amount);
         return itemStack;

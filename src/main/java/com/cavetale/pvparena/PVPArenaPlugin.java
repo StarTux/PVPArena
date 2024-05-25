@@ -15,6 +15,7 @@ import com.cavetale.pvparena.struct.AreasFile;
 import com.cavetale.pvparena.struct.Cuboid;
 import com.cavetale.pvparena.struct.Vec3i;
 import com.cavetale.server.ServerPlugin;
+import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent;
 import com.winthier.creative.BuildWorld;
 import com.winthier.creative.review.MapReview;
 import com.winthier.creative.vote.MapVote;
@@ -56,6 +57,7 @@ import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.Hanging;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -71,8 +73,8 @@ import org.bukkit.event.block.LeavesDecayEvent;
 import org.bukkit.event.entity.AreaEffectCloudApplyEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
@@ -1338,6 +1340,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             event.setCancelled(true);
             return;
         }
+        if (event.getDamager() instanceof Firework firework && event.getEntity().equals(firework.getBoostedEntity())) {
+            event.setCancelled(true);
+            return;
+        }
         if (event.getEntity() instanceof Player damaged) {
             Gladiator gladiator = getGladiator(damaged);
             if (gladiator == null) {
@@ -1570,7 +1576,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             if (tag.state != ArenaState.PLAY || tag.gameTime < WARM_UP_TICKS) {
                 return;
             }
-            if (gladiator.kit != Kit.GRENADIER) return;
+            if (player.getCooldown(Material.TNT) > 0) {
+                event.setCancelled(true);
+                return;
+            }
+            player.setCooldown(Material.TNT, 20);
             event.setCancelled(true);
             item.subtract(1);
             Location loc = player.getEyeLocation();
@@ -1578,7 +1588,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     e.setFuseTicks(4 * 20);
                     e.setSource(player);
                     e.setVelocity(loc.getDirection());
-                    e.setYield((float) 4.0f);
+                    e.setYield((float) 6.0f);
                 });
             if (tnt == null) return;
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITCH_THROW, SoundCategory.PLAYERS, 0.75f, 0.8f);
@@ -1664,6 +1674,27 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (event.getInventory().getHolder() instanceof BlockInventoryHolder) {
             event.setCancelled(true);
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    private void onPlayerLaunchProjectile(PlayerLaunchProjectileEvent event) {
+        final Player player = event.getPlayer();
+        final Gladiator gladiator = getGladiator(player);
+        if (gladiator == null) return;
+        final Material mat = event.getItemStack().getType();
+        switch (mat) {
+        case LINGERING_POTION:
+        case POTION: // ???
+        case SPLASH_POTION:
+            break;
+        default: return;
+        }
+        if (player.getCooldown(mat) > 0) {
+            event.setCancelled(true);
+            return;
+        }
+        player.setCooldown(mat, 100);
+        event.setShouldConsume(false);
     }
 
     protected void computeHighscore() {

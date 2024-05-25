@@ -1,11 +1,11 @@
 package com.cavetale.pvparena;
 
 import com.cavetale.mytems.Mytems;
-import com.cavetale.mytems.util.Items;
 import java.util.List;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import static com.cavetale.mytems.util.Items.tooltip;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
@@ -26,11 +26,11 @@ public final class KitItem {
     public static ItemStack spawnKitItem() {
         ItemStack item = Mytems.BOSS_CHEST.createIcon();
         item.editMeta(meta -> {
-                Items.text(meta, List.of(text("Choose a Kit", GREEN),
-                                         text("There are many PvP kits", GRAY),
-                                         text("to choose from.", GRAY),
-                                         text(""),
-                                         textOfChildren(Mytems.MOUSE_LEFT, text(" Open the Kit Menu", GRAY))));
+                tooltip(meta, List.of(text("Choose a Kit", GREEN),
+                                      text("There are many PvP kits", GRAY),
+                                      text("to choose from.", GRAY),
+                                      text(""),
+                                      textOfChildren(Mytems.MOUSE_LEFT, text(" Open the Kit Menu", GRAY))));
                 meta.getPersistentDataContainer().set(getIdKey(), STRING, getIdValue());
             });
         return item;

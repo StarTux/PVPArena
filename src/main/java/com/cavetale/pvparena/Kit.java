@@ -1,7 +1,6 @@
 package com.cavetale.pvparena;
 
 import com.cavetale.mytems.Mytems;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +16,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import static com.cavetale.core.util.CamelCase.toCamelCase;
 import static com.cavetale.pvparena.Items.*;
+import static java.time.Duration.ofSeconds;
+import static net.kyori.adventure.text.Component.text;
 import static org.bukkit.inventory.EquipmentSlot.*;
 
 /**
@@ -130,13 +131,23 @@ public enum Kit {
                           LEGS, item(Material.GOLDEN_LEGGINGS, Map.of(PROJECTILE_PROTECTION, 4)),
                           FEET, item(Material.GOLDEN_BOOTS, Map.of(FIRE_PROTECTION, 4)));
         }
+        @Override public List<ItemStack> getInventoryItems() {
+            return List.of(potion(Material.LINGERING_POTION, 1, text("Lingering Potion of Slow Harming"),
+                                  List.of(PotionEffectType.HARM, PotionEffectType.SLOW),
+                                  List.of(ofSeconds(1), ofSeconds(10)),
+                                  List.of(1, 1)),
+                           potion(Material.LINGERING_POTION, 1, text("Lingering Potion of Slow Poison"),
+                                  List.of(PotionEffectType.POISON, PotionEffectType.SLOW),
+                                  List.of(ofSeconds(10), ofSeconds(10)),
+                                  List.of(1, 1)),
+                           potion(Material.LINGERING_POTION, 1, text("Lingering Potion of Slow Blindness"),
+                                  List.of(PotionEffectType.BLINDNESS, PotionEffectType.SLOW),
+                                  List.of(ofSeconds(15), ofSeconds(10)),
+                                  List.of(0, 1)));
+        }
+
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.LINGERING_POTION, PotionType.STRONG_HARMING),
-                           potion(Material.LINGERING_POTION, PotionEffectType.HARM, Duration.ofSeconds(1), 2),
-                           potion(Material.LINGERING_POTION, PotionEffectType.POISON, Duration.ofSeconds(60), 1),
-                           potion(Material.LINGERING_POTION, PotionEffectType.GLOWING, Duration.ofSeconds(30), 0),
-                           potion(Material.LINGERING_POTION, PotionEffectType.BLINDNESS, Duration.ofSeconds(10), 0),
-                           new ItemStack(Material.SPECTRAL_ARROW, 64));
+            return List.of(new ItemStack(Material.SPECTRAL_ARROW, 64));
         }
     },
     TRIDENT_THROWER {
@@ -167,16 +178,10 @@ public enum Kit {
                           LEGS, leather(Material.LEATHER_LEGGINGS, c, Map.of(PROJECTILE_PROTECTION, 4)),
                           FEET, leather(Material.LEATHER_BOOTS, c, Map.of(FIRE_PROTECTION, 4)));
         }
-        @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.SPLASH_POTION, PotionType.STRONG_HEALING),
-                           potion(Material.SPLASH_POTION, PotionType.STRONG_HEALING),
-                           potion(Material.SPLASH_POTION, PotionType.STRONG_HEALING),
-                           potion(Material.SPLASH_POTION, PotionType.STRONG_HEALING),
-                           potion(Material.SPLASH_POTION, PotionType.STRONG_HEALING),
-                           potion(Material.SPLASH_POTION, PotionType.STRONG_HEALING),
+        @Override public List<ItemStack> getInventoryItems() {
+            return List.of(potion(Material.LINGERING_POTION, PotionType.STRONG_HEALING),
                            potion(Material.SPLASH_POTION, PotionType.LONG_REGENERATION),
-                           potion(Material.SPLASH_POTION, PotionType.LONG_REGENERATION),
-                           potion(Material.SPLASH_POTION, PotionType.LONG_REGENERATION));
+                           potion(Material.LINGERING_POTION, PotionType.STRONG_STRENGTH));
         }
     },
     ROCKETEER {
@@ -192,23 +197,8 @@ public enum Kit {
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.SLOW_FALLING),
-                           rocket(32));
-        }
-    },
-    GRENADIER {
-        @Override public ItemStack getIcon() {
-            return new ItemStack(Material.TNT);
-        }
-        @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.CROSSBOW, Map.of()),
-                          HEAD, item(Material.NETHERITE_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)),
-                          CHEST, item(Material.NETHERITE_CHESTPLATE, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)),
-                          LEGS, item(Material.NETHERITE_LEGGINGS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)),
-                          FEET, item(Material.NETHERITE_BOOTS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 5)));
-        }
-        @Override public List<ItemStack> getRespawnItems() {
-            return List.of(new ItemStack(Material.TNT, 32),
-                           rocket(16));
+                           rocket(32),
+                           new ItemStack(Material.TNT, 32));
         }
     },
     ;
@@ -272,7 +262,7 @@ public enum Kit {
                 FireworkMeta meta = (FireworkMeta) m;
                 meta.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL)
                                .withColor(Color.RED).build());
-                meta.setPower(7);
+                meta.setPower(4);
             });
         return rocket;
     }

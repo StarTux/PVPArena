@@ -4,7 +4,6 @@ import com.cavetale.core.font.GuiOverlay;
 import com.cavetale.core.item.ItemKinds;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.util.Gui;
-import com.cavetale.mytems.util.Items;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
@@ -13,6 +12,7 @@ import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import static com.cavetale.mytems.util.Items.tooltip;
 import static com.cavetale.pvparena.PVPArenaPlugin.plugin;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.Component.textOfChildren;
@@ -35,12 +35,13 @@ public final class KitMenu {
             if (plugin().tag.winRule == WinRule.LAST_SURVIVOR) {
                 if (kit == Kit.ROCKETEER) continue;
                 if (kit == Kit.NINJA) continue;
+                if (kit == Kit.HEALER) continue;
             }
             ItemStack icon = kit.getIcon();
             icon.editMeta(meta -> {
-                    Items.text(meta, List.of(text(kit.getDisplayName(), color(0xD04040)),
-                                             text(""),
-                                             textOfChildren(Mytems.MOUSE_LEFT, text(" View kit items", GRAY))));
+                    tooltip(meta, List.of(text(kit.getDisplayName(), color(0xD04040)),
+                                          text(""),
+                                          textOfChildren(Mytems.MOUSE_LEFT, text(" View kit items", GRAY))));
                     meta.addItemFlags(ItemFlag.values());
                 });
             int index = nextIndex++;
@@ -65,7 +66,7 @@ public final class KitMenu {
         }
         ItemStack confirmItem = kit.getIcon();
         confirmItem.editMeta(meta -> {
-                Items.text(meta, List.of(textOfChildren(Mytems.MOUSE_LEFT, text(" Confirm", GREEN, BOLD))));
+                tooltip(meta, List.of(textOfChildren(Mytems.MOUSE_LEFT, text(" Confirm", GREEN, BOLD))));
                 meta.addItemFlags(ItemFlag.values());
             });
         gui.setItem(5 * 9 + 4, confirmItem, click -> {
