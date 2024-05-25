@@ -505,6 +505,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             rewardEventWinner(winnerPlayer);
             tag.addScore(winnerPlayer.uuid, 10);
             winnerPlayer.money += 1000;
+            computeHighscore();
         }
         this.winners = List.of(winnerPlayer.uuid);
         endGame();
@@ -526,6 +527,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             for (Gladiator drawer : drawers) {
                 rewardEventWinner(drawer);
             }
+            computeHighscore();
         }
         this.winners = List.of();
         endGame();
@@ -560,6 +562,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 tag.addScore(gladiator.uuid, 10);
                 gladiator.money += 1000;
             }
+            computeHighscore();
         }
         endGame();
     }
