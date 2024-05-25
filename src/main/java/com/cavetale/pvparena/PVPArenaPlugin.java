@@ -1583,7 +1583,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 event.setCancelled(true);
                 return;
             }
-            player.setCooldown(Material.TNT, 20);
+            player.setCooldown(Material.TNT, player.isGliding() ? 100 : 60);
             event.setCancelled(true);
             item.subtract(1);
             Location loc = player.getEyeLocation();
