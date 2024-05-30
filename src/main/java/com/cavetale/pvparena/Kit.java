@@ -15,7 +15,9 @@ import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import static com.cavetale.core.util.CamelCase.toCamelCase;
-import static com.cavetale.pvparena.Items.*;
+import static com.cavetale.pvparena.Items.item;
+import static com.cavetale.pvparena.Items.leather;
+import static com.cavetale.pvparena.Items.potion;
 import static java.time.Duration.ofSeconds;
 import static net.kyori.adventure.text.Component.text;
 import static org.bukkit.inventory.EquipmentSlot.*;
@@ -29,12 +31,12 @@ public enum Kit {
             return new ItemStack(Material.NETHERITE_SWORD);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(SHARPNESS, 4)),
+            return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(Enchantment.SHARPNESS, 4)),
                           OFF_HAND, new ItemStack(Material.SHIELD),
-                          HEAD, item(Material.DIAMOND_HELMET, Map.of(PROTECTION, 4)),
-                          CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(PROTECTION, 4)),
-                          LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(PROTECTION, 4)),
-                          FEET, item(Material.DIAMOND_BOOTS, Map.of(PROTECTION, 4)));
+                          HEAD, item(Material.DIAMOND_HELMET, Map.of(Enchantment.PROTECTION, 4)),
+                          CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(Enchantment.PROTECTION, 4)),
+                          LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(Enchantment.PROTECTION, 4)),
+                          FEET, item(Material.DIAMOND_BOOTS, Map.of(Enchantment.PROTECTION, 4)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.LONG_STRENGTH));
@@ -45,11 +47,11 @@ public enum Kit {
             return new ItemStack(Material.NETHERITE_AXE);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.NETHERITE_AXE, Map.of(SHARPNESS, 5)),
-                          HEAD, item(Material.DIAMOND_HELMET, Map.of(PROTECTION, 4)),
-                          CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)),
-                          LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(PROTECTION, 4, Enchantment.THORNS, 1)),
-                          FEET, item(Material.DIAMOND_BOOTS, Map.of(PROTECTION, 4)));
+            return Map.of(HAND, item(Material.NETHERITE_AXE, Map.of(Enchantment.SHARPNESS, 5)),
+                          HEAD, item(Material.DIAMOND_HELMET, Map.of(Enchantment.PROTECTION, 4)),
+                          CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(Enchantment.PROTECTION, 4, Enchantment.THORNS, 1)),
+                          LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(Enchantment.PROTECTION, 4, Enchantment.THORNS, 1)),
+                          FEET, item(Material.DIAMOND_BOOTS, Map.of(Enchantment.PROTECTION, 4)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.SPLASH_POTION, PotionType.STRONG_SLOWNESS));
@@ -60,7 +62,7 @@ public enum Kit {
             return Mytems.BLIND_EYE.createIcon();
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(SHARPNESS, 5)));
+            return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(Enchantment.SHARPNESS, 5)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.INVISIBILITY),
@@ -73,11 +75,11 @@ public enum Kit {
             return new ItemStack(Material.BOW);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.BOW, Map.of(POWER, 5, PUNCH, 5, INFINITY, 1)),
-                          HEAD, item(Material.CHAINMAIL_HELMET, Map.of(PROTECTION, 3)),
-                          CHEST, item(Material.CHAINMAIL_CHESTPLATE, Map.of(PROJECTILE_PROTECTION, 5)),
-                          LEGS, item(Material.CHAINMAIL_LEGGINGS, Map.of(PROJECTILE_PROTECTION, 5)),
-                          FEET, item(Material.CHAINMAIL_BOOTS, Map.of(PROTECTION, 3)));
+            return Map.of(HAND, item(Material.BOW, Map.of(Enchantment.POWER, 5, Enchantment.PUNCH, 5, Enchantment.INFINITY, 1)),
+                          HEAD, item(Material.CHAINMAIL_HELMET, Map.of(Enchantment.PROTECTION, 3)),
+                          CHEST, item(Material.CHAINMAIL_CHESTPLATE, Map.of(Enchantment.PROJECTILE_PROTECTION, 5)),
+                          LEGS, item(Material.CHAINMAIL_LEGGINGS, Map.of(Enchantment.PROJECTILE_PROTECTION, 5)),
+                          FEET, item(Material.CHAINMAIL_BOOTS, Map.of(Enchantment.PROTECTION, 3)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(new ItemStack(Material.ARROW, 64),
@@ -94,13 +96,13 @@ public enum Kit {
                                                             Enchantment.PIERCING, 1));
             return Map.of(HAND, xbow.clone(),
                           OFF_HAND, xbow.clone(),
-                          HEAD, item(Material.IRON_HELMET, Map.of(PROTECTION, 3)),
-                          CHEST, item(Material.IRON_CHESTPLATE, Map.of(PROJECTILE_PROTECTION, 4)),
-                          LEGS, item(Material.IRON_LEGGINGS, Map.of(PROJECTILE_PROTECTION, 4)),
-                          FEET, item(Material.IRON_BOOTS, Map.of(PROTECTION, 3)));
+                          HEAD, item(Material.IRON_HELMET, Map.of(Enchantment.PROTECTION, 3)),
+                          CHEST, item(Material.IRON_CHESTPLATE, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
+                          LEGS, item(Material.IRON_LEGGINGS, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
+                          FEET, item(Material.IRON_BOOTS, Map.of(Enchantment.PROTECTION, 3)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.TIPPED_ARROW, 16, PotionType.INSTANT_DAMAGE),
+            return List.of(potion(Material.TIPPED_ARROW, 16, PotionType.HARMING),
                            new ItemStack(Material.ARROW, 64));
         }
     },
@@ -111,10 +113,10 @@ public enum Kit {
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.IRON_SWORD, Map.of()),
                           OFF_HAND, Mytems.DEFLECTOR_SHIELD.createItemStack(),
-                          HEAD, item(Material.NETHERITE_HELMET, Map.of(PROJECTILE_PROTECTION, 4)),
-                          CHEST, item(Material.NETHERITE_CHESTPLATE, Map.of(PROTECTION, 4)),
-                          LEGS, item(Material.NETHERITE_LEGGINGS, Map.of(BLAST_PROTECTION, 4)),
-                          FEET, item(Material.NETHERITE_BOOTS, Map.of(PROTECTION, 4)));
+                          HEAD, item(Material.NETHERITE_HELMET, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
+                          CHEST, item(Material.NETHERITE_CHESTPLATE, Map.of(Enchantment.PROTECTION, 4)),
+                          LEGS, item(Material.NETHERITE_LEGGINGS, Map.of(Enchantment.BLAST_PROTECTION, 4)),
+                          FEET, item(Material.NETHERITE_BOOTS, Map.of(Enchantment.PROTECTION, 4)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.STRONG_TURTLE_MASTER));
@@ -125,23 +127,23 @@ public enum Kit {
             return new ItemStack(Material.LINGERING_POTION);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.BOW, Map.of(FLAME, 1)),
-                          HEAD, item(Material.GOLDEN_HELMET, Map.of(PROTECTION, 3)),
-                          CHEST, item(Material.GOLDEN_CHESTPLATE, Map.of(PROJECTILE_PROTECTION, 4)),
-                          LEGS, item(Material.GOLDEN_LEGGINGS, Map.of(PROJECTILE_PROTECTION, 4)),
-                          FEET, item(Material.GOLDEN_BOOTS, Map.of(FIRE_PROTECTION, 4)));
+            return Map.of(HAND, item(Material.BOW, Map.of(Enchantment.FLAME, 1)),
+                          HEAD, item(Material.GOLDEN_HELMET, Map.of(Enchantment.PROTECTION, 3)),
+                          CHEST, item(Material.GOLDEN_CHESTPLATE, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
+                          LEGS, item(Material.GOLDEN_LEGGINGS, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
+                          FEET, item(Material.GOLDEN_BOOTS, Map.of(Enchantment.FIRE_PROTECTION, 4)));
         }
         @Override public List<ItemStack> getInventoryItems() {
             return List.of(potion(Material.LINGERING_POTION, 1, text("Lingering Potion of Slow Harming"),
-                                  List.of(PotionEffectType.HARM, PotionEffectType.SLOW),
+                                  List.of(PotionEffectType.INSTANT_DAMAGE, PotionEffectType.SLOWNESS),
                                   List.of(ofSeconds(1), ofSeconds(10)),
                                   List.of(1, 1)),
                            potion(Material.LINGERING_POTION, 1, text("Lingering Potion of Slow Poison"),
-                                  List.of(PotionEffectType.POISON, PotionEffectType.SLOW),
+                                  List.of(PotionEffectType.POISON, PotionEffectType.SLOWNESS),
                                   List.of(ofSeconds(10), ofSeconds(10)),
                                   List.of(1, 1)),
                            potion(Material.LINGERING_POTION, 1, text("Lingering Potion of Slow Blindness"),
-                                  List.of(PotionEffectType.BLINDNESS, PotionEffectType.SLOW),
+                                  List.of(PotionEffectType.BLINDNESS, PotionEffectType.SLOWNESS),
                                   List.of(ofSeconds(15), ofSeconds(10)),
                                   List.of(0, 1)));
         }
@@ -158,10 +160,10 @@ public enum Kit {
             return Map.of(HAND, item(Material.TRIDENT, Map.of(Enchantment.LOYALTY, 3,
                                                               Enchantment.CHANNELING, 1,
                                                               Enchantment.IMPALING, 5)),
-                          HEAD, item(Material.IRON_HELMET, Map.of(PROTECTION, 4)),
-                          CHEST, item(Material.IRON_CHESTPLATE, Map.of(PROTECTION, 4)),
-                          LEGS, item(Material.IRON_LEGGINGS, Map.of(PROTECTION, 4)),
-                          FEET, item(Material.IRON_BOOTS, Map.of(PROTECTION, 4)));
+                          HEAD, item(Material.IRON_HELMET, Map.of(Enchantment.PROTECTION, 4)),
+                          CHEST, item(Material.IRON_CHESTPLATE, Map.of(Enchantment.PROTECTION, 4)),
+                          LEGS, item(Material.IRON_LEGGINGS, Map.of(Enchantment.PROTECTION, 4)),
+                          FEET, item(Material.IRON_BOOTS, Map.of(Enchantment.PROTECTION, 4)));
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of();
@@ -173,10 +175,10 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             final Color c = Color.fromRGB(0xFFFFFF);
-            return Map.of(HEAD, leather(Material.LEATHER_HELMET, c, Map.of(PROTECTION, 3)),
-                          CHEST, leather(Material.LEATHER_CHESTPLATE, c, Map.of(PROJECTILE_PROTECTION, 4)),
-                          LEGS, leather(Material.LEATHER_LEGGINGS, c, Map.of(PROJECTILE_PROTECTION, 4)),
-                          FEET, leather(Material.LEATHER_BOOTS, c, Map.of(FIRE_PROTECTION, 4)));
+            return Map.of(HEAD, leather(Material.LEATHER_HELMET, c, Map.of(Enchantment.PROTECTION, 3)),
+                          CHEST, leather(Material.LEATHER_CHESTPLATE, c, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
+                          LEGS, leather(Material.LEATHER_LEGGINGS, c, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
+                          FEET, leather(Material.LEATHER_BOOTS, c, Map.of(Enchantment.FIRE_PROTECTION, 4)));
         }
         @Override public List<ItemStack> getInventoryItems() {
             return List.of(potion(Material.LINGERING_POTION, PotionType.STRONG_HEALING),
@@ -190,9 +192,9 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.CROSSBOW, Map.of(Enchantment.QUICK_CHARGE, 3)),
-                          HEAD, item(Material.LEATHER_HELMET, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 3)),
+                          HEAD, item(Material.LEATHER_HELMET, Map.of(Enchantment.BLAST_PROTECTION, 3)),
                           CHEST, new ItemStack(Material.ELYTRA),
-                          LEGS, item(Material.LEATHER_LEGGINGS, Map.of(Enchantment.PROTECTION_EXPLOSIONS, 3)),
+                          LEGS, item(Material.LEATHER_LEGGINGS, Map.of(Enchantment.BLAST_PROTECTION, 3)),
                           FEET, Mytems.STOMPERS.createItemStack());
         }
         @Override public List<ItemStack> getRespawnItems() {

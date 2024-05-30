@@ -19,16 +19,6 @@ import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.format.NamedTextColor.WHITE;
 
 public final class Items {
-    public static final Enchantment FLAME = Enchantment.ARROW_FIRE;
-    public static final Enchantment PUNCH = Enchantment.ARROW_KNOCKBACK;
-    public static final Enchantment UNBREAKING = Enchantment.DURABILITY;
-    public static final Enchantment SHARPNESS = Enchantment.DAMAGE_ALL;
-    public static final Enchantment INFINITY = Enchantment.ARROW_INFINITE;
-    public static final Enchantment POWER = Enchantment.ARROW_DAMAGE;
-    public static final Enchantment PROTECTION = Enchantment.PROTECTION_ENVIRONMENTAL;
-    public static final Enchantment PROJECTILE_PROTECTION = Enchantment.PROTECTION_PROJECTILE;
-    public static final Enchantment FIRE_PROTECTION = Enchantment.PROTECTION_FIRE;
-    public static final Enchantment BLAST_PROTECTION = Enchantment.PROTECTION_EXPLOSIONS;
     private Items() { }
 
     public static ItemStack potion(Material material, int amount, PotionType potionType) {
@@ -53,7 +43,7 @@ public final class Items {
                 PotionEffect effect = new PotionEffect(type, ticks, amplifier, true, false, true);
                 meta.addCustomEffect(effect, true);
                 meta.setColor(type.getColor());
-                meta.displayName(text(toCamelCase(" ", List.of(type.getName().split("_"))), WHITE));
+                meta.displayName(text(toCamelCase(" ", List.of(type.getKey().getKey().split("_"))), WHITE));
             });
         itemStack.setAmount(amount);
         return itemStack;

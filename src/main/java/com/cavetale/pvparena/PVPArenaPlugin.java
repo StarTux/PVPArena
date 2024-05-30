@@ -955,11 +955,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 killer.sendMessage(text("You've been healed", GOLD));
             }
             if (tag.specialRule == SpecialRule.POTION_ON_KILL) {
-                List<PotionEffectType> pts = Arrays.asList(PotionEffectType.INCREASE_DAMAGE,
+                List<PotionEffectType> pts = Arrays.asList(PotionEffectType.STRENGTH,
                                                            PotionEffectType.ABSORPTION,
                                                            PotionEffectType.HEALTH_BOOST,
                                                            PotionEffectType.INVISIBILITY,
-                                                           PotionEffectType.DAMAGE_RESISTANCE);
+                                                           PotionEffectType.RESISTANCE);
                 PotionEffectType potion = pts.get(random.nextInt(pts.size()));
                 killer.addPotionEffect(new PotionEffect(potion, 20 * 30, 1, true, false, true));
                 killer.sendMessage(text("You received a potion effect!", GOLD));
