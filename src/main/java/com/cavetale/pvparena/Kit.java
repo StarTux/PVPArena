@@ -211,10 +211,10 @@ public enum Kit {
             return Map.of(HAND, item(Material.MACE, Map.of(Enchantment.DENSITY, 5,
                                                            Enchantment.BREACH, 4,
                                                            Enchantment.WIND_BURST, 3)),
-                          HEAD, new ItemStack(Material.IRON_HELMET),
-                          CHEST, new ItemStack(Material.IRON_CHESTPLATE),
-                          LEGS, new ItemStack(Material.IRON_LEGGINGS),
-                          FEET, new ItemStack(Material.IRON_BOOTS));
+                          HEAD, Mytems.EASTER_HELMET.createItemStack(),
+                          CHEST, Mytems.EASTER_CHESTPLATE.createItemStack(),
+                          LEGS, Mytems.EASTER_LEGGINGS.createItemStack(),
+                          FEET, Mytems.EASTER_BOOTS.createItemStack());
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(new ItemStack(Material.WIND_CHARGE, 8));
