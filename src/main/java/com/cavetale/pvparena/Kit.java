@@ -203,6 +203,23 @@ public enum Kit {
                            new ItemStack(Material.TNT, 32));
         }
     },
+    HAMMERITE {
+        @Override public ItemStack getIcon() {
+            return new ItemStack(Material.MACE);
+        }
+        @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
+            return Map.of(HAND, item(Material.MACE, Map.of(Enchantment.DENSITY, 5,
+                                                           Enchantment.BREACH, 4,
+                                                           Enchantment.WIND_BURST, 3)),
+                          HEAD, new ItemStack(Material.IRON_HELMET),
+                          CHEST, new ItemStack(Material.IRON_CHESTPLATE),
+                          LEGS, new ItemStack(Material.IRON_LEGGINGS),
+                          FEET, new ItemStack(Material.IRON_BOOTS));
+        }
+        @Override public List<ItemStack> getRespawnItems() {
+            return List.of(new ItemStack(Material.WIND_CHARGE, 8));
+        }
+    }
     ;
 
     public abstract ItemStack getIcon();
