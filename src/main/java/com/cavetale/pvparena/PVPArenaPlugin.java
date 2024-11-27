@@ -896,7 +896,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     c.setRemoveWhenFarAway(true);
                     c.setPowered(true);
                     final double health = 100.0;
-                    c.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(health);
+                    c.getAttribute(Attribute.MAX_HEALTH).setBaseValue(health);
                     c.setHealth(health);
                 });
             removeEntities.add(creeper);
@@ -951,7 +951,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             : null;
         if (gladiator2 != null) {
             if (tag.specialRule == SpecialRule.HEAL_ON_KILL) {
-                killer.setHealth(killer.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
+                killer.setHealth(killer.getAttribute(Attribute.MAX_HEALTH).getValue());
                 killer.sendMessage(text("You've been healed", GOLD));
             }
             if (tag.specialRule == SpecialRule.POTION_ON_KILL) {
@@ -979,7 +979,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     }
                     if (!killer.equals(player)) {
                         tag.moleUuid = gladiator2.uuid;
-                        killer.setHealth(killer.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
+                        killer.setHealth(killer.getAttribute(Attribute.MAX_HEALTH).getValue());
                         killer.showTitle(Title.title(empty(),
                                                      text("You are the mole!", RED)));
                         killer.sendMessage(text("You are the mole!", RED));
@@ -1394,7 +1394,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
             }
             if (damager != null && tag.specialRule == SpecialRule.VAMPIRISM) {
                 double dmg = event.getFinalDamage();
-                double maxHealth = damager.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+                double maxHealth = damager.getAttribute(Attribute.MAX_HEALTH).getValue();
                 double health = Math.min(maxHealth, damager.getHealth() + dmg * 0.5);
                 damager.setHealth(health);
             }
@@ -1402,7 +1402,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 AbstractArrow arrow = (AbstractArrow) event.getDamager();
                 if (arrow.getShooter() instanceof Player shooter) {
                     double dmg = event.getFinalDamage();
-                    double maxHealth = shooter.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+                    double maxHealth = shooter.getAttribute(Attribute.MAX_HEALTH).getValue();
                     double health = Math.min(maxHealth, shooter.getHealth() + dmg * 0.66);
                     shooter.setHealth(health);
                 }
