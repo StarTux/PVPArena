@@ -1,6 +1,7 @@
 package com.cavetale.pvparena;
 
 import com.cavetale.mytems.Mytems;
+import io.papermc.paper.datacomponent.DataComponentTypes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -124,7 +125,9 @@ public enum Kit {
     },
     POTION_MASTER {
         @Override public ItemStack getIcon() {
-            return new ItemStack(Material.LINGERING_POTION);
+            final ItemStack icon = new ItemStack(Material.LINGERING_POTION);
+            icon.setData(DataComponentTypes.HIDE_ADDITIONAL_TOOLTIP);
+            return icon;
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             return Map.of(HAND, item(Material.BOW, Map.of(Enchantment.FLAME, 1)),
