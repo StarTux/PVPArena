@@ -42,6 +42,7 @@ public final class KitMenu {
                     tooltip(meta, List.of(text(kit.getDisplayName(), color(0xD04040)),
                                           text(""),
                                           textOfChildren(Mytems.MOUSE_LEFT, text(" View kit items", GRAY))));
+                    meta.displayName(text(kit.getDisplayName(), color(0xD04040)));
                     meta.addItemFlags(ItemFlag.values());
                 });
             int index = nextIndex++;
