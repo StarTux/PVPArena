@@ -737,7 +737,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         default -> random.nextInt(eligible.size()) > 0;
         };
         if (tag.useSquads) {
-            Collections.shuffle(spawns);
+            final List<Cuboid> usedSpawns = new ArrayList<>();
             final List<NamedTextColor> squadColors = Arrays.asList(new NamedTextColor[] {
                     RED,
                     BLUE,
@@ -761,7 +761,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 name = name.substring(0, 1).toUpperCase() + name.substring(1);
                 squad.name = name;
                 squad.index = i;
-                squad.spawn = spawns.get(i % spawns.size());
+                squad.spawn = i == 0
+                    ? spawns.get(0)
+                    : findFarthestSpawn(usedSpawns);
+                usedSpawns.add(squad.spawn);
                 tag.squads.add(squad);
             }
         } else {
@@ -816,6 +819,28 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         tag.suddenDeath = false;
         tag.warmUp = true;
         tag.totalPlayers = eligible.size();
+    }
+
+    private Cuboid findFarthestSpawn(List<Cuboid> usedSpawns) {
+        int maxDistance = 0;
+        Cuboid result = spawns.get(0);
+        for (Cuboid spawn : spawns) {
+            if (usedSpawns.contains(spawns)) continue;
+            int minDistance = 0;
+            Cuboid nearestSpawn = null;
+            for (Cuboid usedSpawn : usedSpawns) {
+                final int distance = spawn.getCenter().distanceSquared(usedSpawn.getCenter());
+                if (nearestSpawn == null || distance < minDistance) {
+                    nearestSpawn = usedSpawn;
+                    minDistance = distance;
+                }
+            }
+            if (minDistance > maxDistance) {
+                maxDistance = minDistance;
+                result = spawn;
+            }
+        }
+        return result;
     }
 
     protected void resetPlayer(Player target) {
@@ -1517,6 +1542,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         for (Area area : areasFile.find("spawn")) {
             spawns.add(area.toCuboid());
         }
+        Collections.shuffle(spawns);
     }
 
     @EventHandler
