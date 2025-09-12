@@ -1,6 +1,8 @@
 package com.cavetale.pvparena;
 
 import com.cavetale.afk.AFKPlugin;
+import com.cavetale.area.struct.Area;
+import com.cavetale.area.struct.AreasFile;
 import com.cavetale.core.event.hud.PlayerHudEvent;
 import com.cavetale.core.event.hud.PlayerHudPriority;
 import com.cavetale.core.event.minigame.MinigameFlag;
@@ -8,12 +10,11 @@ import com.cavetale.core.event.minigame.MinigameMatchCompleteEvent;
 import com.cavetale.core.event.minigame.MinigameMatchType;
 import com.cavetale.core.event.player.PlayerTeamQuery;
 import com.cavetale.core.money.Money;
+import com.cavetale.core.struct.Cuboid;
+import com.cavetale.core.struct.Vec3i;
 import com.cavetale.fam.trophy.Highscore;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
-import com.cavetale.pvparena.struct.AreasFile;
-import com.cavetale.pvparena.struct.Cuboid;
-import com.cavetale.pvparena.struct.Vec3i;
 import com.cavetale.server.ServerPlugin;
 import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent;
 import com.winthier.creative.BuildWorld;
@@ -129,6 +130,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     protected BuildWorld currentBuildWorld;
     protected World world;
     protected AreasFile areasFile;
+    protected List<Cuboid> spawns;
     protected Tag tag;
     protected Random random = new Random();
     protected List<Entity> removeEntities = new ArrayList<>();
@@ -171,7 +173,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (tag.worldName != null) {
             world = Bukkit.getWorld(tag.worldName);
             if (world != null) {
-                areasFile = loadAreasFile();
+                loadAreasFile();
                 if (tag.buildWorldPath != null) {
                     currentBuildWorld = BuildWorld.findWithPath(tag.buildWorldPath);
                 }
@@ -634,8 +636,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         if (tag.useSquads && tag.gameTime < WARM_UP_TICKS) {
             Squad squad = tag.squads.get(gladiator.squad);
-            Cuboid cuboid = areasFile.getAreas().getSpawn().get(squad.spawn);
-            if (!cuboid.outset(4, 4, 4).contains(player.getLocation())) {
+            if (!squad.spawn.outset(4, 4, 4).contains(player.getLocation())) {
                 player.teleport(findSpawnLocation(player));
                 player.sendMessage(text("Please wait until PvP starts!", RED));
                 player.playSound(player.getEyeLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 1.0f, 1.0f);
@@ -736,13 +737,8 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         default -> random.nextInt(eligible.size()) > 0;
         };
         if (tag.useSquads) {
-            List<Integer> spawnIndexes = new ArrayList<>();
-            for (int i = 0; i < areasFile.getAreas().getSpawn().size(); i += 1) {
-                spawnIndexes.add(i);
-            }
-            if (spawnIndexes.isEmpty()) spawnIndexes = Arrays.asList(0);
-            Collections.shuffle(spawnIndexes);
-            List<NamedTextColor> squadColors = Arrays.asList(new NamedTextColor[] {
+            Collections.shuffle(spawns);
+            final List<NamedTextColor> squadColors = Arrays.asList(new NamedTextColor[] {
                     RED,
                     BLUE,
                     GOLD,
@@ -751,8 +747,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                     LIGHT_PURPLE,
                     YELLOW,
                 });
-            final int spawns = areasFile.getAreas().getSpawn().size();
-            final int squadCount = Math.min(spawns, switch (eligible.size()) {
+            final int squadCount = Math.min(spawns.size(), switch (eligible.size()) {
                 case 9, 15 -> 3;
                 default -> 2;
                 });
@@ -766,7 +761,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 name = name.substring(0, 1).toUpperCase() + name.substring(1);
                 squad.name = name;
                 squad.index = i;
-                squad.spawn = spawnIndexes.get(i % spawnIndexes.size());
+                squad.spawn = spawns.get(i % spawns.size());
                 tag.squads.add(squad);
             }
         } else {
@@ -1028,11 +1023,11 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     protected List<Vec3i> findSpawnVectors() {
-        if (areasFile.getAreas().getSpawn().isEmpty()) {
+        if (spawns.isEmpty()) {
             return List.of(Vec3i.of(world.getSpawnLocation()));
         }
         Set<Vec3i> set = new HashSet<>();
-        for (Cuboid cuboid : areasFile.getAreas().getSpawn()) {
+        for (Cuboid cuboid : spawns) {
             set.addAll(cuboid.enumerate());
         }
         List<Vec3i> result = new ArrayList<>();
@@ -1056,7 +1051,10 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
     }
 
     protected Vec3i findSpawnVector() {
-        List<Vec3i> blocks = findSpawnVectors();
+        return findSpawnVector(findSpawnVectors());
+    }
+
+    protected Vec3i findSpawnVector(List<Vec3i> blocks) {
         if (blocks.size() == 1) return blocks.get(0);
         List<Vec3i> players = new ArrayList<>();
         for (Gladiator gladiator : tag.gladiators.values()) {
@@ -1101,11 +1099,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (!tag.useSquads) return findSpawnLocation();
         Gladiator gladiator = getGladiator(player);
         if (gladiator == null) return findSpawnLocation();
-        if (areasFile.getAreas().getSpawn().isEmpty()) return findSpawnLocation();
+        if (spawns.isEmpty()) return findSpawnLocation();
         Squad squad = tag.squads.get(gladiator.squad);
-        Cuboid cuboid = areasFile.getAreas().getSpawn().get(squad.spawn);
-        List<Vec3i> vecs = cuboid.enumerate();
-        Vec3i vector = vecs.get(random.nextInt(vecs.size()));
+        Vec3i vector = findSpawnVector(squad.spawn.enumerate());
         Location location = world.getBlockAt(vector.x, vector.y, vector.z).getLocation();
         location = location.add(0.5, 0.1, 0.5);
         location.setYaw((float) (random.nextDouble() * 360.0));
@@ -1303,7 +1299,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         world.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, false);
         world.setGameRule(GameRule.NATURAL_REGENERATION, false);
         world.setDifficulty(Difficulty.EASY);
-        areasFile = loadAreasFile();
+        loadAreasFile();
     }
 
     @EventHandler
@@ -1515,10 +1511,12 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    protected AreasFile loadAreasFile() {
-        File folder = new File(world.getWorldFolder(), "areas");
-        File file = new File(folder, "pvparena.json");
-        return Json.load(file, AreasFile.class, AreasFile::new);
+    protected void loadAreasFile() {
+        areasFile = AreasFile.load(world, "pvparena");
+        spawns = new ArrayList<>();
+        for (Area area : areasFile.find("spawn")) {
+            spawns.add(area.toCuboid());
+        }
     }
 
     @EventHandler
