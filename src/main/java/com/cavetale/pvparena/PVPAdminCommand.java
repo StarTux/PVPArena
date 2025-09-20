@@ -10,6 +10,7 @@ import com.cavetale.mytems.item.trophy.TrophyCategory;
 import com.winthier.creative.BuildWorld;
 import java.util.ArrayList;
 import java.util.List;
+import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import static net.kyori.adventure.text.Component.text;
@@ -191,5 +192,8 @@ public final class PVPAdminCommand extends AbstractCommand<PVPArenaPlugin> {
                                    PVPArenaPlugin.TITLE,
                                    hi -> "You earned " + hi.score + " point" + (hi.score == 1 ? "" : "s"));
         sender.sendMessage(text(res + " players rewarded", AQUA));
+        for (Component line : Highscore.rewardMoneyWithFeedback(plugin, plugin.tag.scores, "PvP Arena")) {
+            sender.sendMessage(line);
+        }
     }
 }
