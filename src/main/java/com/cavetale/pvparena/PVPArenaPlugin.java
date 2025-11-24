@@ -430,7 +430,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         if (tag.gameTime == WARM_UP_TICKS) {
             log("Warmup End");
             tag.warmUp = false;
-            world.setPVP(true);
+            world.setGameRule(GameRule.PVP, true);
             world.setGameRule(GameRule.FALL_DAMAGE, true);
             for (Player target : world.getPlayers()) {
                 target.playSound(target.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_2, 1.0f, 1.0f);
@@ -813,7 +813,7 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         log("State PLAY");
         tag.state = ArenaState.PLAY;
         log("Warmup Start");
-        world.setPVP(false);
+        world.setGameRule(GameRule.PVP, false);
         world.setGameRule(GameRule.FALL_DAMAGE, false);
         tag.gameTime = 0;
         tag.suddenDeath = false;
