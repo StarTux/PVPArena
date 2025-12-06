@@ -18,8 +18,10 @@ import static com.cavetale.core.util.CamelCase.toCamelCase;
 import static com.cavetale.pvparena.Items.item;
 import static com.cavetale.pvparena.Items.leather;
 import static com.cavetale.pvparena.Items.potion;
+import static java.time.Duration.ofMinutes;
 import static java.time.Duration.ofSeconds;
 import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static org.bukkit.inventory.EquipmentSlot.*;
 
 /**
@@ -27,22 +29,37 @@ import static org.bukkit.inventory.EquipmentSlot.*;
  */
 public enum Kit {
     SWORDSMAN {
+        @Override public String getDescription() {
+            return "This is the strongest of all the melee fighters.";
+        }
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.NETHERITE_SWORD);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(Enchantment.SHARPNESS, 4)),
-                          OFF_HAND, new ItemStack(Material.SHIELD),
-                          HEAD, item(Material.DIAMOND_HELMET, Map.of(Enchantment.PROTECTION, 4)),
-                          CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(Enchantment.PROTECTION, 4)),
-                          LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(Enchantment.PROTECTION, 4)),
-                          FEET, item(Material.DIAMOND_BOOTS, Map.of(Enchantment.PROTECTION, 4)));
+            return Map.of(
+                HAND, item(Material.NETHERITE_SWORD, Map.of(Enchantment.SHARPNESS, 4)),
+                OFF_HAND, new ItemStack(Material.SHIELD),
+                HEAD, item(Material.DIAMOND_HELMET, Map.of(Enchantment.PROTECTION, 4)),
+                CHEST, item(Material.DIAMOND_CHESTPLATE, Map.of(Enchantment.PROTECTION, 4)),
+                LEGS, item(Material.DIAMOND_LEGGINGS, Map.of(Enchantment.PROTECTION, 4)),
+                FEET, item(Material.DIAMOND_BOOTS, Map.of(Enchantment.PROTECTION, 4))
+            );
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.POTION, PotionType.LONG_STRENGTH));
+            return List.of(
+                potion(
+                    Material.POTION, 1, text("Swordsman Potion", GOLD),
+                    List.of(PotionEffectType.STRENGTH, PotionEffectType.HASTE),
+                    List.of(ofMinutes(3), ofMinutes(3)),
+                    List.of(1, 2)
+                )
+            );
         }
     },
     AXE_WARRIOR {
+        @Override public String getDescription() {
+            return "Strong armor and an axe to break down your enemies' shields.";
+        }
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.NETHERITE_AXE);
         }
@@ -58,6 +75,9 @@ public enum Kit {
         }
     },
     NINJA {
+        @Override public String getDescription() {
+            return "Invisibility and jump boost make you a rather deadly thief.";
+        }
         @Override public ItemStack getIcon() {
             return Mytems.BLIND_EYE.createIcon();
         }
@@ -65,28 +85,43 @@ public enum Kit {
             return Map.of(HAND, item(Material.NETHERITE_SWORD, Map.of(Enchantment.SHARPNESS, 5)));
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.POTION, PotionType.INVISIBILITY),
-                           potion(Material.POTION, PotionType.STRONG_STRENGTH),
-                           potion(Material.POTION, PotionType.STRONG_LEAPING));
+            return List.of(
+                potion(
+                    Material.POTION, 1, text("Ninja Potion", LIGHT_PURPLE),
+                    List.of(PotionEffectType.INVISIBILITY, PotionEffectType.STRENGTH, PotionEffectType.JUMP_BOOST),
+                    List.of(ofMinutes(3), ofMinutes(3), ofMinutes(3)),
+                    List.of(0, 1, 2)
+                )
+            );
         }
     },
     ARCHER {
+        @Override public String getDescription() {
+            return "Take out your enemies from afar with an overpowered bow.";
+        }
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.BOW);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.BOW, Map.of(Enchantment.POWER, 5, Enchantment.PUNCH, 5, Enchantment.INFINITY, 1)),
-                          HEAD, item(Material.CHAINMAIL_HELMET, Map.of(Enchantment.PROTECTION, 3)),
-                          CHEST, item(Material.CHAINMAIL_CHESTPLATE, Map.of(Enchantment.PROJECTILE_PROTECTION, 5)),
-                          LEGS, item(Material.CHAINMAIL_LEGGINGS, Map.of(Enchantment.PROJECTILE_PROTECTION, 5)),
-                          FEET, item(Material.CHAINMAIL_BOOTS, Map.of(Enchantment.PROTECTION, 3)));
+            return Map.of(
+                HAND, item(Material.BOW, Map.of(Enchantment.POWER, 6, Enchantment.PUNCH, 5, Enchantment.INFINITY, 1)),
+                HEAD, item(Material.CHAINMAIL_HELMET, Map.of(Enchantment.PROTECTION, 3)),
+                CHEST, item(Material.CHAINMAIL_CHESTPLATE, Map.of(Enchantment.PROJECTILE_PROTECTION, 5)),
+                LEGS, item(Material.CHAINMAIL_LEGGINGS, Map.of(Enchantment.PROJECTILE_PROTECTION, 5)),
+                FEET, item(Material.CHAINMAIL_BOOTS, Map.of(Enchantment.PROTECTION, 3))
+            );
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(new ItemStack(Material.ARROW, 64),
-                           potion(Material.POTION, PotionType.STRONG_SWIFTNESS));
+            return List.of(
+                new ItemStack(Material.ARROW, 64),
+                potion(Material.POTION, PotionType.STRONG_SWIFTNESS)
+            );
         }
     },
     CROSSBOWMAN {
+        @Override public String getDescription() {
+            return "Rain down a hailstorm of arrows with yoru fast charging dual crossbows.";
+        }
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.CROSSBOW);
         }
@@ -107,22 +142,33 @@ public enum Kit {
         }
     },
     TANK {
+        @Override public String getDescription() {
+            return "Impenetrable armor turns you into a walking fortress.";
+        }
         @Override public ItemStack getIcon() {
             return Mytems.DEFLECTOR_SHIELD.createIcon();
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.IRON_SWORD, Map.of()),
-                          OFF_HAND, Mytems.DEFLECTOR_SHIELD.createItemStack(),
-                          HEAD, item(Material.NETHERITE_HELMET, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
-                          CHEST, item(Material.NETHERITE_CHESTPLATE, Map.of(Enchantment.PROTECTION, 4)),
-                          LEGS, item(Material.NETHERITE_LEGGINGS, Map.of(Enchantment.BLAST_PROTECTION, 4)),
-                          FEET, item(Material.NETHERITE_BOOTS, Map.of(Enchantment.PROTECTION, 4)));
+            return Map.of(
+                HAND, item(Material.IRON_SWORD, Map.of()),
+                OFF_HAND, Mytems.DEFLECTOR_SHIELD.createItemStack(),
+                HEAD, item(Material.NETHERITE_HELMET, Map.of(Enchantment.PROTECTION, 5)),
+                CHEST, item(Material.NETHERITE_CHESTPLATE, Map.of(Enchantment.PROTECTION, 5)),
+                LEGS, item(Material.NETHERITE_LEGGINGS, Map.of(Enchantment.PROTECTION, 5)),
+                FEET, item(Material.NETHERITE_BOOTS, Map.of(Enchantment.PROTECTION, 5))
+            );
         }
         @Override public List<ItemStack> getRespawnItems() {
-            return List.of(potion(Material.POTION, PotionType.STRONG_TURTLE_MASTER));
+            return List.of(
+                new ItemStack(Material.TOTEM_OF_UNDYING),
+                potion(Material.POTION, PotionType.STRONG_TURTLE_MASTER)
+            );
         }
     },
     POTION_MASTER {
+        @Override public String getDescription() {
+            return "Throw deadly potions at your enemies.";
+        }
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.LINGERING_POTION);
         }
@@ -153,6 +199,9 @@ public enum Kit {
         }
     },
     TRIDENT_THROWER {
+        @Override public String getDescription() {
+            return "Your loyal trident will instill fear into the minds of your foes.";
+        }
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.TRIDENT);
         }
@@ -170,6 +219,9 @@ public enum Kit {
         }
     },
     HEALER {
+        @Override public String getDescription() {
+            return "When you drink a potion, its effects are given to your entire team.";
+        }
         @Override public ItemStack getIcon() {
             return Mytems.HEART.createIcon();
         }
@@ -181,40 +233,74 @@ public enum Kit {
                           FEET, leather(Material.LEATHER_BOOTS, c, Map.of(Enchantment.FIRE_PROTECTION, 4)));
         }
         @Override public List<ItemStack> getInventoryItems() {
-            return List.of(potion(Material.LINGERING_POTION, PotionType.STRONG_HEALING),
-                           potion(Material.SPLASH_POTION, PotionType.LONG_REGENERATION),
-                           potion(Material.LINGERING_POTION, PotionType.STRONG_STRENGTH));
+            return List.of(
+                potion(Material.LINGERING_POTION, PotionType.STRONG_HEALING),
+                potion(Material.POTION, 1, text("Healer Potion", RED),
+                       List.of(PotionEffectType.REGENERATION),
+                       List.of(ofSeconds(3)),
+                       List.of(2)
+                ),
+                potion(Material.POTION, 1, text("Healer Potion", RED),
+                       List.of(PotionEffectType.REGENERATION),
+                       List.of(ofSeconds(3)),
+                       List.of(2)
+                ),
+                potion(Material.POTION, 1, text("Healer Potion", RED),
+                       List.of(PotionEffectType.REGENERATION),
+                       List.of(ofSeconds(3)),
+                       List.of(2)
+                ),
+                potion(Material.POTION, 1, text("Healer Potion", RED),
+                       List.of(PotionEffectType.REGENERATION),
+                       List.of(ofSeconds(3)),
+                       List.of(2)
+                )
+            );
         }
     },
     ROCKETEER {
+        @Override public String getDescription() {
+            return "Soar throug the skies and stomp your enemies into the ground.";
+        }
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.FIREWORK_ROCKET);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.CROSSBOW, Map.of(Enchantment.QUICK_CHARGE, 3)),
-                          HEAD, item(Material.LEATHER_HELMET, Map.of(Enchantment.BLAST_PROTECTION, 3)),
-                          CHEST, new ItemStack(Material.ELYTRA),
-                          LEGS, item(Material.LEATHER_LEGGINGS, Map.of(Enchantment.BLAST_PROTECTION, 3)),
-                          FEET, Mytems.STOMPERS.createItemStack());
+            return Map.of(
+                HAND, item(Material.CROSSBOW, Map.of(Enchantment.QUICK_CHARGE, 3)),
+                HEAD, item(Material.COPPER_HELMET, Map.of(Enchantment.BLAST_PROTECTION, 3)),
+                CHEST, new ItemStack(Material.ELYTRA),
+                LEGS, item(Material.COPPER_LEGGINGS, Map.of(Enchantment.BLAST_PROTECTION, 3)),
+                FEET, Mytems.STOMPERS.createItemStack()
+            );
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(potion(Material.POTION, PotionType.SLOW_FALLING),
-                           rocket(32),
+                           rocket(16),
                            new ItemStack(Material.TNT, 32));
         }
     },
     HAMMERITE {
+        @Override public String getDescription() {
+            return "Jump around like a bunny and hit your enemies with a mace.";
+        }
         @Override public ItemStack getIcon() {
             return new ItemStack(Material.MACE);
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
-            return Map.of(HAND, item(Material.MACE, Map.of(Enchantment.DENSITY, 5,
-                                                           Enchantment.BREACH, 4,
-                                                           Enchantment.WIND_BURST, 3)),
-                          HEAD, Mytems.EASTER_HELMET.createItemStack(),
-                          CHEST, Mytems.EASTER_CHESTPLATE.createItemStack(),
-                          LEGS, Mytems.EASTER_LEGGINGS.createItemStack(),
-                          FEET, Mytems.EASTER_BOOTS.createItemStack());
+            return Map.of(
+                HAND, item(
+                    Material.MACE,
+                    Map.of(
+                        Enchantment.DENSITY, 3,
+                        Enchantment.WIND_BURST, 3
+                    )
+                ),
+                HEAD, Mytems.EASTER_HELMET.createItemStack(),
+                CHEST, Mytems.EASTER_CHESTPLATE.createItemStack(),
+                LEGS, Mytems.EASTER_LEGGINGS.createItemStack(),
+                FEET, Mytems.EASTER_BOOTS.createItemStack()
+            );
         }
         @Override public List<ItemStack> getRespawnItems() {
             return List.of(new ItemStack(Material.WIND_CHARGE, 8));
@@ -244,6 +330,10 @@ public enum Kit {
 
     public String getDisplayName() {
         return toCamelCase(" ", this);
+    }
+
+    public String getDescription() {
+        return "";
     }
 
     /**

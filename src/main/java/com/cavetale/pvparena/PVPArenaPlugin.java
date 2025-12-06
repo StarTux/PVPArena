@@ -77,6 +77,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityPotionEffectEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
@@ -103,6 +104,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 import static com.cavetale.core.font.Unicode.tiny;
+import static com.cavetale.core.util.CamelCase.snakeToCamelCase;
 import static com.winthier.creative.file.Files.deleteWorld;
 import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
@@ -1374,6 +1376,9 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
                 event.setCancelled(true);
                 return;
             }
+            if (gladiator.getKit() == Kit.NINJA) {
+                damaged.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 60, 0, true, true, true));
+            }
             Player damager = getPlayerDamager(event.getDamager());
             if (damaged.equals(damager)) return;
             if (damager != null) {
@@ -1722,6 +1727,23 @@ public final class PVPArenaPlugin extends JavaPlugin implements Listener {
         }
         player.setCooldown(mat, 100);
         event.setShouldConsume(false);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    private void onEntityPotionEffect(EntityPotionEffectEvent event) {
+        if (!(event.getEntity() instanceof Player healer)) return;
+        final Gladiator gladiator = getGladiator(healer);
+        if (gladiator == null) return;
+        if (gladiator.getKit() != Kit.HEALER) return;
+        if (!tag.useSquads) return;
+        if (event.getCause() != EntityPotionEffectEvent.Cause.POTION_DRINK) return;
+        for (Player other : world.getPlayers()) {
+            if (healer == other) continue;
+            final Gladiator otherGladiator = getGladiator(other);
+            if (otherGladiator == null || gladiator.squad != otherGladiator.squad) continue;
+            other.addPotionEffect(event.getNewEffect());
+            other.sendMessage(text("You received a " + snakeToCamelCase(" ", event.getNewEffect().getType().getKey().getKey()) + " from " + healer.getName(), GREEN));
+        }
     }
 
     protected void computeHighscore() {

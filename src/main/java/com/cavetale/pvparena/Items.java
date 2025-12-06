@@ -17,6 +17,7 @@ import org.bukkit.potion.PotionType;
 import static com.cavetale.core.util.CamelCase.toCamelCase;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.format.NamedTextColor.WHITE;
+import static net.kyori.adventure.text.format.TextDecoration.ITALIC;
 
 public final class Items {
     private Items() { }
@@ -62,7 +63,7 @@ public final class Items {
                     PotionEffect effect = new PotionEffect(type, ticks, amplifier, true, false, true);
                     meta.addCustomEffect(effect, true);
                 }
-                meta.displayName(displayName);
+                meta.displayName(displayName.decoration(ITALIC, false));
             });
         itemStack.setAmount(amount);
         return itemStack;

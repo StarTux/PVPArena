@@ -4,8 +4,11 @@ import com.cavetale.core.font.GuiOverlay;
 import com.cavetale.core.item.ItemKinds;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.util.Gui;
+import com.cavetale.mytems.util.Text;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -14,6 +17,7 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import static com.cavetale.mytems.util.Items.tooltip;
 import static com.cavetale.pvparena.PVPArenaPlugin.plugin;
+import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
@@ -34,14 +38,15 @@ public final class KitMenu {
         for (Kit kit : Kit.values()) {
             if (plugin().tag.winRule == WinRule.LAST_SURVIVOR) {
                 if (kit == Kit.ROCKETEER) continue;
-                if (kit == Kit.NINJA) continue;
-                if (kit == Kit.HEALER) continue;
             }
             ItemStack icon = kit.getIcon();
             icon.editMeta(meta -> {
-                    tooltip(meta, List.of(text(kit.getDisplayName(), color(0xD04040)),
-                                          text(""),
-                                          textOfChildren(Mytems.MOUSE_LEFT, text(" View kit items", GRAY))));
+                    final List<Component> tooltip = new ArrayList<>();
+                    tooltip.add(text(kit.getDisplayName(), color(0xD04040)));
+                    tooltip.addAll(Text.wrapLore(kit.getDescription()));
+                    tooltip.add(empty());
+                    tooltip.add(textOfChildren(Mytems.MOUSE_LEFT, text(" View kit items", GRAY)));
+                    tooltip(meta, tooltip);
                     meta.displayName(text(kit.getDisplayName(), color(0xD04040)));
                     meta.addItemFlags(ItemFlag.values());
                 });
