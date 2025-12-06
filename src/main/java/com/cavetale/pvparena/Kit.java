@@ -227,10 +227,19 @@ public enum Kit {
         }
         @Override public Map<EquipmentSlot, ItemStack> getEquipmentItems() {
             final Color c = Color.fromRGB(0xFFFFFF);
-            return Map.of(HEAD, leather(Material.LEATHER_HELMET, c, Map.of(Enchantment.PROTECTION, 3)),
-                          CHEST, leather(Material.LEATHER_CHESTPLATE, c, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
-                          LEGS, leather(Material.LEATHER_LEGGINGS, c, Map.of(Enchantment.PROJECTILE_PROTECTION, 4)),
-                          FEET, leather(Material.LEATHER_BOOTS, c, Map.of(Enchantment.FIRE_PROTECTION, 4)));
+            return Map.of(
+                HEAD, leather(Material.LEATHER_HELMET, c, Map.of(Enchantment.PROTECTION, 5)),
+                HAND, item(
+                    Material.COPPER_SWORD,
+                    Map.of(
+                        Enchantment.SHARPNESS, 4,
+                        Enchantment.FIRE_ASPECT, 1
+                    )
+                ),
+                CHEST, leather(Material.LEATHER_CHESTPLATE, c, Map.of(Enchantment.PROTECTION, 5)),
+                LEGS, leather(Material.LEATHER_LEGGINGS, c, Map.of(Enchantment.PROTECTION, 5)),
+                FEET, leather(Material.LEATHER_BOOTS, c, Map.of(Enchantment.PROTECTION, 5))
+            );
         }
         @Override public List<ItemStack> getInventoryItems() {
             return List.of(
@@ -238,22 +247,27 @@ public enum Kit {
                 potion(Material.POTION, 1, text("Healer Potion", RED),
                        List.of(PotionEffectType.REGENERATION),
                        List.of(ofSeconds(3)),
-                       List.of(2)
+                       List.of(3)
                 ),
                 potion(Material.POTION, 1, text("Healer Potion", RED),
                        List.of(PotionEffectType.REGENERATION),
                        List.of(ofSeconds(3)),
-                       List.of(2)
+                       List.of(3)
                 ),
                 potion(Material.POTION, 1, text("Healer Potion", RED),
                        List.of(PotionEffectType.REGENERATION),
                        List.of(ofSeconds(3)),
-                       List.of(2)
+                       List.of(3)
                 ),
                 potion(Material.POTION, 1, text("Healer Potion", RED),
                        List.of(PotionEffectType.REGENERATION),
                        List.of(ofSeconds(3)),
-                       List.of(2)
+                       List.of(3)
+                ),
+                potion(Material.POTION, 1, text("Healer Potion", RED),
+                       List.of(PotionEffectType.REGENERATION),
+                       List.of(ofSeconds(3)),
+                       List.of(3)
                 )
             );
         }
